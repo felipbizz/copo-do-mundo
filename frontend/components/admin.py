@@ -16,34 +16,106 @@ class AdminComponent:
 
     def render(self):
         """Render the admin section"""
+        # Render admin login in sidebar
+        self._render_admin_login()
+        
+        # If admin is authenticated, render admin content
+        if st.session_state.get("is_admin", False):
+            self._render_admin_content()
+
+    def _render_admin_login(self):
+        """Render admin login section in sidebar."""
         st.sidebar.title("Área do Administrador")
-        admin_password = st.sidebar.text_input("Senha do Administrador", type="password")
+        admin_password = st.sidebar.text_input(
+            "Senha do Administrador", 
+            type="password",
+            key="admin_password_input"
+        )
 
         if self.validators.validate_admin_password(admin_password):
-            with st.sidebar:
-                self.ui.show_success_message(UI_MESSAGES["ADMIN_WELCOME"])
-                self._render_competition_settings()
-                self._render_photo_management()
-                self._render_data_export()
+            st.sidebar.success(UI_MESSAGES["ADMIN_WELCOME"])
             st.session_state.is_admin = True
         elif admin_password:
             st.sidebar.error(UI_MESSAGES["ERROR_PASSWORD"])
             st.session_state.is_admin = False
+            st.session_state.results_access = False
         else:
             st.session_state.is_admin = False
+            st.session_state.results_access = False
+
+    def _render_admin_content(self):
+        """Render admin content when authenticated."""
+        # Render sidebar controls
+        with st.sidebar:
+            # Render competition settings
+            st.markdown("---")
+            self._render_competition_settings()
+            
+            # Render photo management in main area
+            self._render_photo_management()
+
+            # Render results access control
+            st.markdown("---")
+            self._render_results_access()
+            
+            # Render data export at the bottom
+            st.markdown("---")
+            self._render_data_export()
+        
+        
 
     def _render_competition_settings(self):
         """Render competition settings section"""
-        st.subheader("Configurações da Competição")
-        new_num_drinks = st.number_input(
-            "Número de Drinks", min_value=1, value=st.session_state.num_drinks
+        st.subheader("⚙️ Configurações")
+        new_num_participants = st.number_input(
+            "Número de Participantes", 
+            min_value=1, 
+            value=st.session_state.num_participants,
+            key="admin_num_participants"
         )
 
-        if new_num_drinks != st.session_state.num_drinks:
+        if new_num_participants != st.session_state.num_participants:
             with st.spinner("Atualizando configurações..."):
-                st.session_state.num_drinks = new_num_drinks
-                time.sleep(0.5)  # Add a small delay for better UX
+                st.session_state.num_participants = new_num_participants
+                time.sleep(0.5)
                 st.rerun()
+
+    def _render_results_access(self):
+        """Render results access control section."""
+        st.subheader("🔐 Controle de Resultados")
+        
+        # Show current status
+        status = "🟢 Resultados Liberados" if st.session_state.get("results_access", False) else "🔴 Resultados Bloqueados"
+        st.markdown(f"**Status atual:** {status}")
+        
+        # Toggle results access
+        col1, col2 = st.columns([3, 2])
+        with col2:
+            if st.session_state.get("results_access", False):
+                if st.button("🔒 Bloquear", key="block_results", use_container_width=True):
+                    st.session_state.results_access = False
+                    st.rerun()
+            else:
+                if st.button("🔓 Liberar", key="unblock_results", use_container_width=True):
+                    st.session_state.results_access = True
+                    st.rerun()
+
+    def _render_data_export(self):
+        """Render data export section"""
+        st.subheader("📥 Exportar Dados")
+        if st.button("Baixar Dados CSV"):
+            with st.spinner("Preparando arquivo..."):
+                try:
+                    csv = st.session_state.data.to_csv(index=False)
+                    st.download_button(
+                        "📥 Clique para baixar",
+                        csv,
+                        "votos.csv",
+                        "text/csv",
+                        key="download-csv",
+                    )
+                except Exception as e:
+                    self.ui.show_error_message(UI_MESSAGES["ERROR_EXPORT_DATA"].format(str(e)))
 
     def _render_photo_management(self):
         """Render photo management section"""
@@ -161,21 +233,4 @@ class AdminComponent:
                             time.sleep(0.5)
                             st.rerun()
                         except Exception as e:
-                            self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}")
-
-    def _render_data_export(self):
-        """Render data export section"""
-        st.subheader("Exportar Dados")
-        if st.button("📥 Baixar Dados CSV"):
-            with st.spinner("Preparando arquivo..."):
-                try:
-                    csv = st.session_state.data.to_csv(index=False)
-                    st.download_button(
-                        "📥 Clique para baixar",
-                        csv,
-                        "votos.csv",
-                        "text/csv",
-                        key="download-csv",
-                    )
-                except Exception as e:
-                    self.ui.show_error_message(UI_MESSAGES["ERROR_EXPORT_DATA"].format(str(e))) 
+                            self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}") 

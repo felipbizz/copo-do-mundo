@@ -36,13 +36,21 @@ class VoteManager:
         categoria: str, participant: str
     ) -> pd.DataFrame:
         """Remove a duplicate vote"""
-        return data[
-            ~(
-                (data["Nome"] == name) & 
-                (data["Categoria"] == categoria) & 
-                (data["Participante"] == participant)
-            )
-        ]
+        # Find all matching votes
+        mask = (
+            (data["Nome"] == name) & 
+            (data["Categoria"] == categoria) & 
+            (data["Participante"] == participant)
+        )
+        
+        # Get the first occurrence
+        first_occurrence = data[mask].iloc[0:1]
+        
+        # Get all non-matching votes
+        non_matching = data[~mask]
+        
+        # Combine first occurrence with non-matching votes
+        return pd.concat([first_occurrence, non_matching], ignore_index=True)
 
     def get_missing_votes(
         self, data: pd.DataFrame, name: str, 

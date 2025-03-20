@@ -19,9 +19,6 @@ def initialize_session_state():
     if "num_participants" not in st.session_state:
         st.session_state.num_participants = CONFIG["NUM_PARTICIPANTS"]
     
-    if "num_drinks" not in st.session_state:
-        st.session_state.num_drinks = CONFIG["DEFAULT_NUM_DRINKS"]
-    
     if "participant_names" not in st.session_state:
         st.session_state.participant_names = CONFIG["PARTICIPANT_NAMES"]
     
@@ -67,19 +64,17 @@ def main():
     # Create necessary directories
     os.makedirs(CONFIG["IMAGES_DIR"], exist_ok=True)
 
-    # Create tabs
-    tab1, tab2 = st.tabs(["Votação", "Admin"])
-
     # Initialize components
     voting = VotingComponent()
     admin = AdminComponent()
 
-    # Render components
-    with tab1:
-        voting.render()
-
-    with tab2:
+    # Render admin in sidebar
+    with st.sidebar:
         admin.render()
+
+    # Render main voting component
+    voting.render()
+
 
 if __name__ == "__main__":
     main()

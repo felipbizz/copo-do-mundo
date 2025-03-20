@@ -1,3 +1,4 @@
+import streamlit as st
 from datetime import datetime, timedelta
 from typing import Dict, Tuple
 
@@ -25,7 +26,10 @@ class Validators:
 
     def validate_results_password(self, password: str) -> bool:
         """Validate results password"""
-        return password == CONFIG["RESULTS_PASSWORD"]
+        is_valid = password == CONFIG["RESULTS_PASSWORD"]
+        if not is_valid and "results_access" in st.session_state:
+            st.session_state.results_access = False
+        return is_valid
 
     def check_rate_limit(self, last_votes: dict, name: str) -> tuple[bool, str]:
         """Check if user is within rate limit"""
@@ -43,4 +47,7 @@ class Validators:
     @staticmethod
     def validate_admin_password(password: str) -> bool:
         """Validate admin password"""
-        return password == CONFIG["ADMIN_PASSWORD"] 
+        is_valid = password == CONFIG["ADMIN_PASSWORD"]
+        if not is_valid and "is_admin" in st.session_state:
+            st.session_state.is_admin = False
+        return is_valid 
