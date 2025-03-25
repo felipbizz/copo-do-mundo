@@ -11,6 +11,9 @@ from backend.image.image_manager import ImageManager
 from backend.validation.validators import Validators
 from config import CONFIG, UI_MESSAGES
 from frontend.utils.ui_utils import UIUtils
+from frontend.utils.session_manager import SessionManager
+from frontend.utils.cache_manager import CacheManager
+from frontend.utils.anonymizer import Anonymizer
 
 class VotingComponent:
     """
@@ -25,6 +28,8 @@ class VotingComponent:
     
     def __init__(self):
         """Initialize component dependencies."""
+        CacheManager.initialize_cache()
+        Anonymizer.initialize_anonymization()
         self.data_manager = DataManager()
         self.vote_manager = VoteManager()
         self.image_manager = ImageManager()
@@ -64,16 +69,21 @@ class VotingComponent:
         name_container = st.container()
         with name_container:
             st.subheader("Identificação do Jurado")
+            current_name = SessionManager.get("juror_name", "")
             name = st.text_input(
                 "Nome do Jurado", 
-                value=st.session_state.get("juror_name", ""),
+                value=current_name,
                 key="juror_name_input"
             ).strip()
             
-            if name:  # Only update session state if we have a valid name
-                st.session_state.juror_name = name
+            # Check if name has changed
+            if name != current_name:
+                SessionManager.set("juror_name", name)
+                # Clear other related states when name changes
+                SessionManager.reset_voting_state()
+                st.rerun()
             
-        return st.session_state.get("juror_name", "")
+        return SessionManager.get("juror_name", "")
 
     # Voting Interface Methods
     # ----------------------
@@ -91,70 +101,77 @@ class VotingComponent:
             st.subheader("Selecione o Drink")
             self._show_draft_votes(name)
             
-            participant = self._get_participant_selection()
-            categoria = self._get_category_selection()
-
-            if self.vote_manager.check_duplicate_vote(
-                st.session_state.data, name, categoria, str(participant)
-            ):
-                self._handle_duplicate_vote(name, categoria, participant)
+            # Get all available codes
+            available_codes = self._get_available_codes()
+            if not available_codes:
+                st.warning("Nenhum drink disponível para votação.")
                 return
 
-            self._render_voting_form(name, categoria, participant)
+            # Create a mapping of display names to codes
+            code_options = {Anonymizer.get_drink_name(code): code for code in available_codes}
+            
+            # Let user select a drink by name
+            selected_name = st.selectbox(
+                "Nome do Drink",
+                options=list(code_options.keys()),
+                key="voting_drink_select",
+                help="Selecione o drink que deseja avaliar"
+            )
 
-    def _get_participant_selection(self) -> int:
-        """Handle participant selection logic."""
-        participants = list(range(1, st.session_state.num_participants + 1))
-        selected_participant = st.session_state.get("selected_participant", 1)
-        
-        if selected_participant not in participants:
-            selected_participant = 1
-            st.session_state.selected_participant = selected_participant
-        
-        participant_index = selected_participant - 1
-        
-        return st.selectbox(
-            "Participante",
-            options=participants,
-            key="voting_participant_select",
-            index=participant_index
-        )
+            if selected_name:
+                selected_code = code_options[selected_name]
+                self._render_voting_form(name, selected_code)
 
-    def _get_category_selection(self) -> str:
-        """Handle category selection logic."""
-        selected_category = st.session_state.get("selected_category", st.session_state.categories[0])
-        if selected_category not in st.session_state.categories:
-            selected_category = st.session_state.categories[0]
-            st.session_state.selected_category = selected_category
-        
-        return st.selectbox(
-            "Categoria", 
-            options=st.session_state.categories,
-            key="voting_category_select",
-            index=st.session_state.categories.index(selected_category)
-        )
+    def _get_available_codes(self) -> list:
+        """Get list of available drink codes"""
+        # Get all codes that have photos
+        available_codes = []
+        for code in Anonymizer.get_all_codes().keys():
+            participant, categoria = Anonymizer.get_participant_from_code(code)
+            image_path = os.path.join(CONFIG["IMAGES_DIR"], f"participant_{participant}_{categoria.lower()}.jpg")
+            if os.path.exists(image_path):
+                available_codes.append(code)
+        return available_codes
 
     def _show_draft_votes(self, name: str):
         """Display saved draft votes."""
-        if "draft_votes" in st.session_state and st.session_state.draft_votes:
+        draft_votes = SessionManager.get("draft_votes", [])
+        if draft_votes:
             with st.expander("📝 Rascunhos Salvos"):
-                for draft in st.session_state.draft_votes:
+                for draft in draft_votes:
                     if draft["Nome"] == name:
                         self._render_draft_vote(draft)
 
     def _render_draft_vote(self, draft: dict):
-        """Render a single draft vote."""
+        """Render a single draft vote with better visualization"""
+        st.markdown("---")
         st.markdown(f"""
-        **Participante: {draft['Participante']}**
-        **Categoria: {draft['Categoria']}**
-        - Originalidade: {draft['Originalidade']}/10
-        - Aparência: {draft['Aparencia']}/10
-        - Sabor: {draft['Sabor']}/10
+        ### 📝 Rascunho para Participante {draft['Participante']}
+        **Categoria:** {draft['Categoria']}
+        
+        | Critério | Nota |
+        |----------|------|
+        | Originalidade | {draft['Originalidade']}/10 |
+        | Aparência | {draft['Aparencia']}/10 |
+        | Sabor | {draft['Sabor']}/10 |
+        
+        *Salvo em: {draft['Data'].strftime('%d/%m/%Y %H:%M')}*
         """)
-        if st.button("Carregar Rascunho", key=f"load_draft_{draft['Participante']}_{draft['Categoria']}"):
-            st.session_state.selected_participant = draft["Participante"]
-            st.session_state.selected_category = draft["Categoria"]
-            st.rerun()
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("📥 Carregar Rascunho", key=f"load_draft_{draft['Participante']}_{draft['Categoria']}"):
+                SessionManager.set("selected_participant", draft["Participante"])
+                SessionManager.set("selected_category", draft["Categoria"])
+                st.rerun()
+        with col2:
+            if st.button("🗑️ Excluir Rascunho", key=f"delete_draft_{draft['Participante']}_{draft['Categoria']}"):
+                draft_votes = SessionManager.get("draft_votes", [])
+                draft_votes = [d for d in draft_votes if not (d["Participante"] == draft["Participante"] and d["Categoria"] == draft["Categoria"])]
+                SessionManager.set("draft_votes", draft_votes)
+                self.ui.show_success_message("Rascunho excluído com sucesso!")
+                time.sleep(0.5)
+                st.rerun()
 
     # Results Display Methods
     # ---------------------
@@ -162,7 +179,7 @@ class VotingComponent:
     def _render_results_tab(self):
         """Manage results tab display and access control."""
         # Check if we have access to results (only via admin)
-        if not st.session_state.get("results_access", False):
+        if not SessionManager.get("results_access", False):
             self.ui.show_info_message("🔒 Área restrita. Acesse como administrador para visualizar os resultados.")
             return
 
@@ -170,135 +187,186 @@ class VotingComponent:
         self._render_results()
 
     def _render_results(self):
-        """Display competition results."""
-        if st.session_state.data.empty:
-            self.ui.show_info_message(UI_MESSAGES["INFO_NO_DATA"])
-            return
-
-        st.title("📊 Resultados da Competição")
+        """Render the results section"""
         try:
-            df_avg, winners = self._calculate_results()
-            if not df_avg.empty:
-                self._render_winners(df_avg, winners)
-                self._render_statistics(st.session_state.data)
+            # Get data from session state
+            data = SessionManager.get("data")
+            if data is None or data.empty:
+                st.warning("Nenhum voto registrado ainda.")
+                return
+
+            # Create a copy of the data to avoid modifying the original
+            data_copy = data.copy()
+
+            # Ensure data types are correct
+            data_copy['Participante'] = data_copy['Participante'].astype(str)
+            data_copy['Categoria'] = data_copy['Categoria'].astype(str)
+            data_copy['Originalidade'] = data_copy['Originalidade'].astype(float)
+            data_copy['Aparencia'] = data_copy['Aparencia'].astype(float)
+            data_copy['Sabor'] = data_copy['Sabor'].astype(float)
+
+            # Calculate results using cache
+            df_avg, winners = CacheManager.calculate_results(data_copy)
+
+            # Display results
+            st.subheader("Resultados por Categoria")
+            
+            # Create tabs for different views
+            tab1, tab2 = st.tabs(["Resumo", "Detalhado"])
+            
+            with tab1:
+                # Show overall winner first in a more prominent way
+                if 'Geral' in winners:
+                    st.markdown("### 🏆 Vencedor Geral da Competição")
+                    overall_winner = winners['Geral']
+                    participant_name = CacheManager.get_participant_name(
+                        overall_winner['participant'],
+                        st.session_state.participant_names
+                    )
+                    
+                    # Get drink name from code
+                    code = Anonymizer.get_or_create_code(overall_winner['participant'], 'Geral')
+                    drink_name = Anonymizer.get_drink_name(code)
+                    
+                    # Create a more prominent display for the overall winner
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        st.markdown(f"### {participant_name}")
+                        st.markdown(f"*{drink_name}*")
+                        st.markdown(f"**{overall_winner['score']:.2f} pontos**")
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    st.divider()
+                
+                # Then show category winners
+                self._render_winners(winners)
+            
+            with tab2:
                 self._render_detailed_results(df_avg)
-            else:
-                self.ui.show_error_message("Erro ao calcular os resultados. Verifique se há dados válidos.")
+
         except Exception as e:
-            self._handle_results_error(e)
+            st.error(f"Erro ao processar resultados: {str(e)}")
+            st.exception(e)
 
-    def _calculate_results(self) -> tuple[pd.DataFrame, dict]:
-        """Calculate competition results."""
-        with st.spinner("Calculando resultados..."):
-            data_copy = st.session_state.data.copy()
-            data_copy = self._prepare_data_types(data_copy)
-            
-            df_avg = self._calculate_averages(data_copy)
-            winners = self._determine_winners(df_avg)
-            
-            return df_avg, winners
-
-    def _prepare_data_types(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Prepare data types for calculation."""
-        data['Participante'] = data['Participante'].astype(str)
-        data['Originalidade'] = data['Originalidade'].astype(float)
-        data['Aparencia'] = data['Aparencia'].astype(float)
-        data['Sabor'] = data['Sabor'].astype(float)
-        return data
-
-    def _calculate_averages(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Calculate average scores."""
-        df_avg = data.groupby(['Categoria', 'Participante']).agg({
-            'Originalidade': 'mean',
-            'Aparencia': 'mean',
-            'Sabor': 'mean'
-        }).round(2)
+    def _render_winners(self, winners):
+        """Render winners section with caching"""
+        st.subheader("🏆 Vencedores por Categoria")
         
-        df_avg['Pontuação Total'] = df_avg[['Originalidade', 'Aparencia', 'Sabor']].sum(axis=1)
-        return df_avg
+        # Filter out the overall winner
+        category_winners = {k: v for k, v in winners.items() if k != 'Geral'}
+        
+        for cat, result in category_winners.items():
+            participant_name = CacheManager.get_participant_name(
+                result['participant'],
+                st.session_state.participant_names
+            )
+            
+            # Get drink name from code
+            code = Anonymizer.get_or_create_code(result['participant'], cat)
+            drink_name = Anonymizer.get_drink_name(code)
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.markdown(f"**{cat}**")
+            with col2:
+                st.markdown(f"**{participant_name}**")
+                st.markdown(f"*{drink_name}*")
+                st.markdown(f"*{result['score']:.2f} pontos*")
+            st.divider()
 
-    def _determine_winners(self, df_avg: pd.DataFrame) -> dict:
-        """Determine winners for each category."""
-        winners = {}
-        for cat in df_avg.index.get_level_values('Categoria').unique():
-            cat_scores = df_avg.loc[cat]
-            winner_idx = cat_scores['Pontuação Total'].idxmax()
-            winners[cat] = {
-                'participant': winner_idx,
-                'score': cat_scores.loc[winner_idx, 'Pontuação Total']
-            }
-        return winners
-
-    def _handle_results_error(self, error: Exception):
-        """Handle and display results calculation errors."""
-        self.ui.show_error_message(f"Erro ao processar resultados: {str(error)}")
-        st.write("Stack trace:", error.__traceback__)
+    def _render_detailed_results(self, df_avg):
+        """Render detailed results with caching"""
+        with st.expander("Ver Resultados Detalhados", expanded=True):
+            # Reset index for easier manipulation
+            df_display = df_avg.reset_index()
+            
+            # Add participant names using cache
+            df_display['Participante'] = df_display['Participante'].apply(
+                lambda x: CacheManager.get_participant_name(x, st.session_state.participant_names)
+            )
+            
+            # Set index back to multi-index
+            df_display.set_index(['Participante', 'Categoria'], inplace=True)
+            
+            # Sort by total score
+            df_display.sort_values('Pontuação Total', ascending=False, inplace=True)
+            
+            # Style the DataFrame
+            styled_df = df_display.style.background_gradient(
+                subset=['Pontuação Total'],
+                cmap='RdYlGn',
+                vmin=0,
+                vmax=30
+            )
+            
+            st.dataframe(styled_df)
 
     # Vote Management Methods
     # ---------------------
 
     def _handle_vote_submission(
-        self, name: str, categoria: str, participant: int, 
+        self, name: str, code: str, 
         originalidade: int, aparencia: int, sabor: int
     ):
         """Process vote submission."""
-        with st.spinner("Processando voto..."):
-            if not self._validate_vote(name, categoria, participant):
-                return
+        if not self._validate_vote(name, code):
+            return
 
-            if not self._check_rate_limit(name):
-                return
+        self._save_vote(name, code, originalidade, aparencia, sabor)
 
-            self._save_vote(name, categoria, participant, originalidade, aparencia, sabor)
-
-    def _validate_vote(self, name: str, categoria: str, participant: int) -> bool:
+    def _validate_vote(self, name: str, code: str) -> bool:
         """Validate vote data."""
-        is_valid, error_message = self.validators.validate_vote_data(
-            name, categoria, str(participant), st.session_state.num_participants
-        )
-        if not is_valid:
-            self.ui.show_error_message(error_message)
-            return False
-        return True
-
-    def _check_rate_limit(self, name: str) -> bool:
-        """Check voting rate limit."""
-        is_allowed, error_message = self.validators.check_rate_limit(
-            st.session_state.last_votes, name
-        )
-        if not is_allowed:
-            self.ui.show_error_message(error_message)
+        if not code:
+            self.ui.show_error_message("Código do drink inválido")
             return False
         return True
 
     def _save_vote(
-        self, name: str, categoria: str, participant: int, 
+        self, name: str, code: str, 
         originalidade: int, aparencia: int, sabor: int
     ):
         """Save the vote and handle success/failure."""
+        participant, categoria = Anonymizer.get_participant_from_code(code)
+        data = SessionManager.get("data")
+        
+        # Ensure data has the required columns
+        if data.empty:
+            data = pd.DataFrame(columns=[
+                "Nome", "Participante", "Categoria", "Originalidade", 
+                "Aparencia", "Sabor", "Data"
+            ])
+        
+        # Check for duplicate vote
+        if self.vote_manager.check_duplicate_vote(data, name, categoria, str(participant)):
+            self._handle_duplicate_vote(name, categoria, participant)
+            return
+            
         new_vote = self.vote_manager.create_vote(
             name, categoria, str(participant), originalidade, aparencia, sabor
         )
-        st.session_state.data = pd.concat([st.session_state.data, new_vote], ignore_index=True)
+        SessionManager.set("data", pd.concat([data, new_vote], ignore_index=True))
 
-        if self.data_manager.save_data(st.session_state.data):
+        if self.data_manager.save_data(SessionManager.get("data")):
             self._handle_successful_vote(name)
         else:
             self.ui.show_error_message(UI_MESSAGES["ERROR_SAVE_VOTE"])
+
+        CacheManager.invalidate_results_cache()
 
     def _handle_successful_vote(self, name: str):
         """Handle successful vote submission."""
         self.ui.show_success_message(UI_MESSAGES["SUCCESS_VOTE"].format(name))
         st.balloons()
         self._show_missing_votes(name)
+        SessionManager.update_last_vote(name)
 
     def _show_missing_votes(self, name: str):
         """Show remaining votes for the user."""
         missing_votes = self.vote_manager.get_missing_votes(
-            st.session_state.data,
+            SessionManager.get("data"),
             name,
-            st.session_state.categories,
-            st.session_state.num_participants,
+            SessionManager.get("categories"),
+            SessionManager.get("num_participants"),
         )
         if missing_votes:
             self.ui.show_warning_message("⚠️ Você ainda não votou nos seguintes participantes com foto disponível:")
@@ -331,36 +399,50 @@ class VotingComponent:
         """Handle vote removal process."""
         if st.button("Confirmar remoção do voto", key=f"confirm_remove_{participant}_{categoria}"):
             with st.spinner("Removendo voto anterior..."):
-                st.session_state.data = self.vote_manager.remove_duplicate_vote(
-                    st.session_state.data, name, categoria, str(participant)
+                data = SessionManager.get("data")
+                data = self.vote_manager.remove_duplicate_vote(
+                    data, name, categoria, str(participant)
                 )
-                if self.data_manager.save_data(st.session_state.data):
+                SessionManager.set("data", data)
+                if self.data_manager.save_data(data):
                     self.ui.show_success_message(UI_MESSAGES["VOTE_REMOVED"])
                     time.sleep(0.5)
                     st.rerun()
 
-    def _render_voting_form(self, name: str, categoria: str, participant: int):
+    def _render_voting_form(self, name: str, code: str):
         """Render the voting form"""
-        with st.form("voting_form", clear_on_submit=False):
-            st.subheader(f"Participante {participant} - {categoria}")
+        with st.form(key="voting_form"):
+            drink_name = Anonymizer.get_drink_name(code)
+            st.subheader(f"Drink: {drink_name}")
             
             # Show drink photo with container for better responsiveness
             photo_container = st.container()
             with photo_container:
+                participant, categoria = Anonymizer.get_participant_from_code(code)
                 image_path = os.path.join(CONFIG["IMAGES_DIR"], f"participant_{participant}_{categoria.lower()}.jpg")
                 if os.path.exists(image_path):
                     image = self.image_manager.load_and_resize_image(image_path, width=300)
                     self.ui.display_image(image)
                 else:
-                    self.ui.show_info_message(UI_MESSAGES["NO_PHOTO_AVAILABLE"])
+                    self.ui.show_warning_message(UI_MESSAGES["NO_PHOTO_AVAILABLE"])
 
             # Voting criteria with container for better responsiveness
             criteria_container = st.container()
             with criteria_container:
                 st.subheader("Avaliação")
+                # Initialize default values
+                originalidade = 5
+                aparencia = 5
+                sabor = 5
+                
                 for criterion, description in CONFIG["VOTING_CRITERIA"].items():
-                    st.write(f"**{criterion}**: {description}")
-                    value = st.slider(criterion, 0, 10, 5)
+                    st.markdown(f"**{criterion}**: {description}")
+                    value = st.slider(
+                        criterion, 
+                        0, 10, 5,
+                        key=f"slider_{criterion}_{code}",
+                        help="Use as setas do teclado para ajustar o valor"
+                    )
                     if criterion == "Originalidade":
                         originalidade = value
                     elif criterion == "Aparencia":
@@ -368,11 +450,13 @@ class VotingComponent:
                     else:
                         sabor = value
 
-            # Show vote summary
+            # Show vote summary with validation
             st.markdown(f"### {UI_MESSAGES['VOTE_SUMMARY']}")
+            if originalidade == 0 and aparencia == 0 and sabor == 0:
+                st.warning("⚠️ Todos os critérios estão zerados. Por favor, revise sua avaliação.")
+            
             st.markdown(f"""
-            - **Participante:** {participant}
-            - **Categoria:** {categoria}
+            - **Drink:** {drink_name}
             - **Originalidade:** {originalidade}/10
             - **Aparência:** {aparencia}/10
             - **Sabor:** {sabor}/10
@@ -382,83 +466,26 @@ class VotingComponent:
             with st.expander("⌨️ Atalhos de Teclado"):
                 st.markdown(UI_MESSAGES["KEYBOARD_SHORTCUTS"])
 
-            # Add voting progress
-            total_votes = len(st.session_state.categories) * st.session_state.num_participants
-            current_votes = len(st.session_state.data[st.session_state.data['Nome'] == name])
+            # Add voting progress with better visualization
+            total_votes = len(self._get_available_codes())
+            current_votes = len(SessionManager.get("data")[SessionManager.get("data")['Nome'] == name])
             progress = min(current_votes / total_votes, 1.0)
-            st.progress(progress)
+            
+            # Show progress with percentage
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.progress(progress)
+            with col2:
+                st.markdown(f"**{progress*100:.1f}%**")
+            
             st.markdown(UI_MESSAGES["VOTING_PROGRESS"].format(current_votes, total_votes, progress*100))
 
-            # Form buttons
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col1:
-                submitted = st.form_submit_button("✅ Enviar Voto")
-            with col2:
-                if st.form_submit_button("💾 Salvar Rascunho"):
-                    self._save_draft(name, categoria, participant, originalidade, aparencia, sabor)
-            with col3:
-                if st.form_submit_button("❌ Cancelar"):
-                    st.rerun()
-
-            if submitted:
-                # Show confirmation dialog
-                if st.session_state.get("confirm_vote", False):
-                    self._handle_vote_submission(name, categoria, participant, originalidade, aparencia, sabor)
+            # Single submit button
+            if st.form_submit_button("✅ Enviar Voto", help="Clique para enviar sua avaliação"):
+                if originalidade == 0 and aparencia == 0 and sabor == 0:
+                    st.error("❌ Não é possível enviar uma avaliação com todos os critérios zerados.")
                 else:
-                    st.session_state.confirm_vote = True
-                    st.warning("Tem certeza que deseja enviar este voto? Clique em 'Enviar Voto' novamente para confirmar.")
-
-    def _save_draft(self, name: str, categoria: str, participant: int, originalidade: int, aparencia: int, sabor: int):
-        """Save vote as draft"""
-        draft = {
-            "Nome": name,
-            "Participante": participant,
-            "Categoria": categoria,
-            "Originalidade": originalidade,
-            "Aparencia": aparencia,
-            "Sabor": sabor,
-            "Data": pd.Timestamp.now()
-        }
-        
-        if "draft_votes" not in st.session_state:
-            st.session_state.draft_votes = []
-        
-        # Remove any existing draft for this participant and category
-        st.session_state.draft_votes = [
-            d for d in st.session_state.draft_votes 
-            if not (d["Participante"] == participant and d["Categoria"] == categoria)
-        ]
-        
-        st.session_state.draft_votes.append(draft)
-        self.ui.show_success_message(UI_MESSAGES["DRAFT_SAVED"])
-        time.sleep(0.5)
-        st.rerun()
-
-    def _render_winners(self, df_avg, winners):
-        """Render winners section"""
-        st.subheader("🏆 Vencedores por Categoria")
-        cols = self.ui.create_columns(len(winners))
-        
-        for idx, (cat, result) in enumerate(winners.items()):
-            with cols[idx]:
-                st.markdown(f"### {cat}")
-                participant = result["participant"]
-                
-                # Get participant name from the mapping
-                participant_name = st.session_state.participant_names.get(
-                    int(participant), 
-                    f"Participante {participant}"
-                )
-                st.markdown(f"**{participant_name}**")
-                st.markdown(f"**Pontuação: {result['score']:.2f}**")
-                st.markdown("---")
-                st.markdown(f"**Detalhes:**")
-                
-                # Get scores for this participant and category
-                scores = df_avg.loc[(cat, participant)]
-                st.markdown(f"- Originalidade: {scores['Originalidade']:.2f}")
-                st.markdown(f"- Aparência: {scores['Aparencia']:.2f}")
-                st.markdown(f"- Sabor: {scores['Sabor']:.2f}")
+                    self._handle_vote_submission(name, code, originalidade, aparencia, sabor)
 
     def _render_statistics(self, data):
         """Render statistics section"""
@@ -480,7 +507,7 @@ class VotingComponent:
             
             # Add participant names
             display_df['Participante'] = display_df['Participante'].apply(
-                lambda x: st.session_state.participant_names.get(int(x), f"Participante {x}")
+                lambda x: SessionManager.get("participant_names", {}).get(int(x), f"Participante {x}")
             )
             
             # Set the index back

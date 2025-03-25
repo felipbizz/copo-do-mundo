@@ -7,9 +7,14 @@ from backend.image.image_manager import ImageManager
 from backend.validation.validators import Validators
 from config import CONFIG, UI_MESSAGES
 from frontend.utils.ui_utils import UIUtils
+from frontend.utils.session_manager import SessionManager
+from frontend.utils.cache_manager import CacheManager
+from frontend.utils.anonymizer import Anonymizer
 
 class AdminComponent:
     def __init__(self):
+        CacheManager.initialize_cache()
+        Anonymizer.initialize_anonymization()
         self.image_manager = ImageManager()
         self.validators = Validators()
         self.ui = UIUtils()
@@ -20,7 +25,7 @@ class AdminComponent:
         self._render_admin_login()
         
         # If admin is authenticated, render admin content
-        if st.session_state.get("is_admin", False):
+        if SessionManager.get("is_admin", False):
             self._render_admin_content()
 
     def _render_admin_login(self):
@@ -34,14 +39,12 @@ class AdminComponent:
 
         if self.validators.validate_admin_password(admin_password):
             st.sidebar.success(UI_MESSAGES["ADMIN_WELCOME"])
-            st.session_state.is_admin = True
+            SessionManager.set("is_admin", True)
         elif admin_password:
             st.sidebar.error(UI_MESSAGES["ERROR_PASSWORD"])
-            st.session_state.is_admin = False
-            st.session_state.results_access = False
+            SessionManager.reset_access_state()
         else:
-            st.session_state.is_admin = False
-            st.session_state.results_access = False
+            SessionManager.reset_access_state()
 
     def _render_admin_content(self):
         """Render admin content when authenticated."""
@@ -61,8 +64,6 @@ class AdminComponent:
             # Render data export at the bottom
             st.markdown("---")
             self._render_data_export()
-        
-        
 
     def _render_competition_settings(self):
         """Render competition settings section"""
@@ -70,35 +71,35 @@ class AdminComponent:
         new_num_participants = st.number_input(
             "Número de Participantes", 
             min_value=1, 
-            value=st.session_state.num_participants,
+            value=SessionManager.get("num_participants"),
             key="admin_num_participants"
         )
 
-        if new_num_participants != st.session_state.num_participants:
+        if new_num_participants != SessionManager.get("num_participants"):
             with st.spinner("Atualizando configurações..."):
-                st.session_state.num_participants = new_num_participants
+                SessionManager.set("num_participants", new_num_participants)
                 time.sleep(0.5)
                 st.rerun()
 
     def _render_results_access(self):
-        """Render results access control section."""
-        st.subheader("🔐 Controle de Resultados")
+        """Render results access control with cache invalidation"""
+        st.subheader("🔒 Controle de Acesso aos Resultados")
+        
+        # Get current state
+        results_access = SessionManager.get("results_access", False)
         
         # Show current status
-        status = "🟢 Resultados Liberados" if st.session_state.get("results_access", False) else "🔴 Resultados Bloqueados"
+        status = "🔓 Liberado" if results_access else "🔒 Bloqueado"
         st.markdown(f"**Status atual:** {status}")
         
-        # Toggle results access
-        col1, col2 = st.columns([3, 2])
-        with col2:
-            if st.session_state.get("results_access", False):
-                if st.button("🔒 Bloquear", key="block_results", use_container_width=True):
-                    st.session_state.results_access = False
-                    st.rerun()
-            else:
-                if st.button("🔓 Liberar", key="unblock_results", use_container_width=True):
-                    st.session_state.results_access = True
-                    st.rerun()
+        # Only show toggle button if user is admin
+        if SessionManager.get("is_admin", False):
+            # Single toggle button
+            if st.button("🔓 Liberar Resultados" if not results_access else "🔒 Bloquear Resultados", 
+                        key="toggle_results"):
+                SessionManager.set("results_access", not results_access)
+                CacheManager.invalidate_results_cache()
+                st.rerun()
 
     def _render_data_export(self):
         """Render data export section"""
@@ -106,7 +107,7 @@ class AdminComponent:
         if st.button("Baixar Dados CSV"):
             with st.spinner("Preparando arquivo..."):
                 try:
-                    csv = st.session_state.data.to_csv(index=False)
+                    csv = SessionManager.get("data").to_csv(index=False)
                     st.download_button(
                         "📥 Clique para baixar",
                         csv,
@@ -121,6 +122,46 @@ class AdminComponent:
         """Render photo management section"""
         st.subheader("📸 Gerenciamento de Fotos")
         
+        # Show current drink codes and names
+        with st.expander("🔑 Códigos e Nomes dos Drinks"):
+            st.markdown("### Drinks Cadastrados")
+            codes = Anonymizer.get_all_codes()
+            if codes:
+                for code, (participant, categoria) in codes.items():
+                    col1, col2, col3, col4 = st.columns([2, 1, 1, 2])
+                    with col1:
+                        st.markdown(f"**Código:** {code}")
+                    with col2:
+                        st.markdown(f"**Participante:** {participant}")
+                    with col3:
+                        st.markdown(f"**Categoria:** {categoria}")
+                    with col4:
+                        # Add custom name input
+                        current_name = Anonymizer.get_drink_name(code)
+                        new_name = st.text_input(
+                            "Nome do Drink",
+                            value=current_name,
+                            key=f"drink_name_{code}",
+                            help="Digite um nome personalizado para o drink"
+                        )
+                        if new_name != current_name:
+                            Anonymizer.set_drink_name(code, new_name)
+                            st.success("Nome atualizado!")
+            else:
+                st.info("Nenhum drink cadastrado ainda.")
+            
+            if st.button("🔄 Regenerar Códigos"):
+                Anonymizer.clear_anonymization()
+                # Generate new codes for all participants
+                for participant in range(1, SessionManager.get("num_participants") + 1):
+                    for categoria in SessionManager.get("categories"):
+                        Anonymizer.get_or_create_code(participant, categoria)
+                st.success("Códigos regenerados com sucesso!")
+                st.rerun()
+
+        # Photo upload section
+        st.markdown("### Upload de Fotos")
+        
         # Create columns for participant and category selection
         col1, col2 = self.ui.create_columns([1, 1])
         
@@ -128,7 +169,7 @@ class AdminComponent:
             # Participant selection
             participant = st.selectbox(
                 "Participante",
-                options=list(range(1, st.session_state.num_participants + 1)),
+                options=list(range(1, SessionManager.get("num_participants") + 1)),
                 key="admin_participant_select"
             )
         
@@ -136,7 +177,7 @@ class AdminComponent:
             # Category selection
             category = st.selectbox(
                 "Categoria",
-                options=st.session_state.categories,
+                options=SessionManager.get("categories"),
                 key="admin_category_select"
             )
         
@@ -157,6 +198,7 @@ class AdminComponent:
                         os.remove(image_path)
                         self.ui.show_success_message("Foto removida com sucesso!")
                         time.sleep(0.5)
+                        CacheManager.invalidate_results_cache()
                         st.rerun()
                     except Exception as e:
                         self.ui.show_error_message(f"Erro ao remover foto: {str(e)}")
@@ -199,6 +241,7 @@ class AdminComponent:
                             )
                             self.ui.show_success_message("Foto salva com sucesso!")
                             time.sleep(0.5)
+                            CacheManager.invalidate_results_cache()
                             st.rerun()
                         except Exception as e:
                             self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}")
@@ -231,6 +274,15 @@ class AdminComponent:
                             )
                             self.ui.show_success_message("Foto salva com sucesso!")
                             time.sleep(0.5)
+                            CacheManager.invalidate_results_cache()
                             st.rerun()
                         except Exception as e:
-                            self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}") 
+                            self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}")
+
+    def _handle_photo_upload(self):
+        """Handle photo upload and invalidate cache"""
+        CacheManager.invalidate_results_cache()
+
+    def _handle_photo_delete(self):
+        """Handle photo deletion and invalidate cache"""
+        CacheManager.invalidate_results_cache() 
