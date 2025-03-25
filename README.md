@@ -1,6 +1,6 @@
 # 🍹 Copo do Mundo - Sistema de Avaliação de Drinks
 
-Um sistema web interativo para gerenciar competições de drinks, permitindo avaliação em tempo real, gestão de fotos e análise de resultados.
+Sistema web para gerenciar competições de drinks, permitindo avaliação em tempo real, gestão de fotos e análise de resultados.
 
 ## ✨ Funcionalidades
 
@@ -15,18 +15,10 @@ Um sistema web interativo para gerenciar competições de drinks, permitindo ava
 
 ### 👨‍💼 Área do Administrador
 - Gerenciamento de fotos dos drinks por participante e categoria
-- Captura de fotos via:
-  - 📸 Câmera em tempo real
-  - 📤 Upload de arquivo
+- Captura de fotos via câmera em tempo real ou upload
 - Configuração do número de participantes
 - Exportação dos dados em formato CSV
 - Visualização dos resultados em tempo real
-
-### 📊 Sistema de Resultados
-- Cálculo automático de médias por categoria
-- Ranking de participantes
-- Visualização detalhada das pontuações
-- Proteção por senha para acesso aos resultados
 
 ## 🚀 Como Começar
 
@@ -34,7 +26,7 @@ Um sistema web interativo para gerenciar competições de drinks, permitindo ava
 - Python 3.11 ou superior
 - UV (gerenciador de pacotes Python moderno e rápido)
 
-### Instalação
+### Instalação Rápida
 
 1. Instale o UV:
 ```bash
@@ -45,111 +37,61 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-2. Clone o repositório:
+2. Clone e configure o projeto:
 ```bash
 git clone https://github.com/seu-usuario/copo-do-mundo.git
 cd copo-do-mundo
-```
 
-3. Crie e ative um ambiente virtual com UV:
-```bash
+# Crie e ative o ambiente virtual
 uv venv
 source .venv/bin/activate  # Linux/Mac
 # ou
 .venv\Scripts\activate  # Windows
-```
 
-4. Instale as dependências com UV:
-```bash
+# Instale as dependências
 uv pip install .
 ```
 
-5. Execute a aplicação:
+3. Execute a aplicação:
 ```bash
 streamlit run main.py
 ```
 
-## 🛠️ Configuração
-
-### Dependências do Projeto
-O arquivo `pyproject.toml` gerencia todas as dependências e configurações do projeto:
-
-```toml
-[project]
-name = "copo-do-mundo"
-version = "1.0.0"
-dependencies = [
-    "streamlit",
-    "pandas",
-    "pillow",
-    "seaborn"
-]
-
-[project.optional-dependencies]
-dev = [
-    "ruff"
-]
-```
-
-### Configurações da Aplicação
-O arquivo `config.py` permite personalizar diversos aspectos da aplicação:
-
-- Senhas de acesso
-- Número de participantes
-- Categorias de drinks
-- Configurações de imagem
-- Mensagens do sistema
+4. Acesse no navegador:
+- Abra http://localhost:8501
 
 ## 📁 Estrutura do Projeto
 
 ```
 copo-do-mundo/
-├── backend/
-│   ├── data/           # Gerenciamento de dados
-│   ├── image/          # Processamento de imagens
-│   └── validation/     # Validadores
-├── frontend/
-│   ├── components/     # Componentes da UI
-│   └── utils/         # Utilitários da interface
-├── data/
-│   ├── images/        # Armazenamento de fotos
-│   └── votes.csv      # Dados das votações
-├── config.py          # Configurações
-├── main.py           # Ponto de entrada
-├── pyproject.toml    # Configuração do projeto e dependências
-└── README.md         # Documentação
+├── backend/          # Lógica de negócio
+├── frontend/         # Interface do usuário
+├── data/            # Dados e imagens
+├── docs/            # Documentação
+├── deploy/          # Arquivos de deploy
+│   └── gcp/        # Configurações do Google Cloud
+├── main.py          # Ponto de entrada
+└── pyproject.toml   # Configuração do projeto
 ```
 
-## 🔒 Segurança
+## 🚀 Deploy
 
-- Proteção por senha para área administrativa
-- Validação de dados em tempo real
-- Proteção contra votos duplicados
-- Sistema de rate limiting
+### Google Cloud Run
 
-## 📱 Responsividade
+O projeto pode ser facilmente deployado no Google Cloud Run. Para mais detalhes, consulte a [documentação de deploy](docs/deploy.md).
 
-A interface foi desenvolvida para funcionar em diversos dispositivos:
-- 💻 Desktop
-- 📱 Tablets
-- 📱 Smartphones
+```bash
+# Deploy no Google Cloud Run
+gcloud builds submit --config deploy/gcp/cloudbuild.yaml
+```
+
+## 📚 Documentação
+
+Para mais detalhes, consulte a [documentação completa](docs/README.md).
 
 ## 🤝 Contribuindo
 
-Contribuições são bem-vindas! Por favor, sinta-se à vontade para:
-- Reportar bugs
-- Sugerir novas funcionalidades
-- Enviar pull requests
-
-### Desenvolvimento Local
-
-1. Instale as dependências de desenvolvimento:
-```bash
-uv pip install ".[dev]"
-```
-
-2. Configure seu ambiente:
-- Use `ruff` para formatação de código e linting
+Contribuições são bem-vindas! Por favor, consulte o [guia de desenvolvimento](docs/development.md).
 
 ## 📄 Licença
 

@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: deploy/gcp/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      - DEBUG=True
+      - PORT=8080
+      - HOST=0.0.0.0
+    command: streamlit run main.py --server.port=8080 --server.address=0.0.0.0
+
+  # Adicione outros serviços conforme necessário
+  # Por exemplo, um banco de dados:
+  # db:
+  #   image: postgres:15
+  #   environment:
+  #     - POSTGRES_DB=copodomundo
+  #     - POSTGRES_USER=admin
+  #     - POSTGRES_PASSWORD=secret
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# volumes:
+#   postgres_data: 
