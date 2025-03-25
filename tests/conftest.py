@@ -3,23 +3,54 @@ import os
 import pandas as pd
 from datetime import datetime
 from PIL import Image
+import streamlit as st
+from frontend.utils.session_manager import SessionManager
+from config import CONFIG
 
 @pytest.fixture(autouse=True)
-def setup_test_env(tmp_path):
-    """Setup test environment"""
-    # Create test directories
-    os.makedirs(os.path.join(tmp_path, "data"), exist_ok=True)
-    os.makedirs(os.path.join(tmp_path, "data/images"), exist_ok=True)
+def setup_test_environment():
+    """Setup test environment before each test"""
+    # Initialize session state
+    if not hasattr(st, 'session_state'):
+        st.session_state = {}
     
-    # Set environment variables for testing
-    os.environ["TEST_MODE"] = "true"
-    os.environ["TEST_DATA_DIR"] = str(tmp_path)
+    # Reset session state
+    st.session_state.clear()
+    
+    # Initialize required session state variables
+    SessionManager.initialize_session_state()
+    
+    # Initialize anonymizer state
+    if 'drink_codes' not in st.session_state:
+        st.session_state.drink_codes = {}
+    if 'drink_names' not in st.session_state:
+        st.session_state.drink_names = {}
+    if 'code_to_participant' not in st.session_state:
+        st.session_state.code_to_participant = {}
+    if 'participant_to_code' not in st.session_state:
+        st.session_state.participant_to_code = {}
+    
+    # Initialize tracking lists
+    if 'rendered_elements' not in st.session_state:
+        st.session_state.rendered_elements = []
+    if 'form_elements' not in st.session_state:
+        st.session_state.form_elements = []
+    
+    # Add test-specific config values
+    CONFIG["RESULTS_PASSWORD"] = "test_password"
+    CONFIG["ADMIN_PASSWORD"] = "admin_password"
     
     yield
     
-    # Cleanup
-    os.environ.pop("TEST_MODE", None)
-    os.environ.pop("TEST_DATA_DIR", None)
+    # Cleanup after test
+    st.session_state.clear()
+    CONFIG.pop("RESULTS_PASSWORD", None)
+    CONFIG.pop("ADMIN_PASSWORD", None)
+
+@pytest.fixture
+def mock_session_state():
+    """Fixture to mock Streamlit session state"""
+    return st.session_state
 
 @pytest.fixture
 def empty_data():
@@ -49,14 +80,69 @@ def test_image():
 
 @pytest.fixture
 def mock_streamlit():
-    """Mock streamlit session state"""
-    import streamlit as st
+    """Mock Streamlit functions to capture rendered elements"""
+    # Store original functions
+    original_markdown = st.markdown
+    original_subheader = st.subheader
+    original_write = st.write
+    original_error = st.error
+    original_warning = st.warning
+    original_success = st.success
+    original_info = st.info
     
-    # Initialize session state
-    if not hasattr(st, "session_state"):
-        setattr(st, "session_state", {})
+    def mock_markdown(text, **kwargs):
+        # Extract text from markdown if it's a string
+        if isinstance(text, str):
+            # Preserve markdown formatting
+            st.session_state.rendered_elements.append(text)
+        return original_markdown(text, **kwargs)
     
-    # Reset session state before each test
-    st.session_state.clear()
+    def mock_subheader(text, **kwargs):
+        if isinstance(text, str):
+            st.session_state.rendered_elements.append(text)
+        return original_subheader(text, **kwargs)
     
-    return st 
+    def mock_write(text, **kwargs):
+        if isinstance(text, str):
+            st.session_state.rendered_elements.append(text)
+        return original_write(text, **kwargs)
+    
+    def mock_error(text, **kwargs):
+        if isinstance(text, str):
+            st.session_state.rendered_elements.append(text)
+        return original_error(text, **kwargs)
+    
+    def mock_warning(text, **kwargs):
+        if isinstance(text, str):
+            st.session_state.rendered_elements.append(text)
+        return original_warning(text, **kwargs)
+    
+    def mock_success(text, **kwargs):
+        if isinstance(text, str):
+            st.session_state.rendered_elements.append(text)
+        return original_success(text, **kwargs)
+    
+    def mock_info(text, **kwargs):
+        if isinstance(text, str):
+            st.session_state.rendered_elements.append(text)
+        return original_info(text, **kwargs)
+    
+    # Replace functions with mocks
+    st.markdown = mock_markdown
+    st.subheader = mock_subheader
+    st.write = mock_write
+    st.error = mock_error
+    st.warning = mock_warning
+    st.success = mock_success
+    st.info = mock_info
+    
+    yield
+    
+    # Restore original functions
+    st.markdown = original_markdown
+    st.subheader = original_subheader
+    st.write = original_write
+    st.error = original_error
+    st.warning = original_warning
+    st.success = original_success
+    st.info = original_info 

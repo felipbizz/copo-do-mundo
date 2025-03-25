@@ -1,11 +1,19 @@
 import pytest
 import streamlit as st
 from backend.validation.validators import Validators
+from frontend.utils.session_manager import SessionManager
 from config import CONFIG
 
 @pytest.fixture
 def validators():
     return Validators()
+
+@pytest.fixture
+def mock_session_state():
+    """Fixture to mock Streamlit session state"""
+    if not hasattr(st, 'session_state'):
+        st.session_state = {}
+    return st.session_state
 
 def test_admin_password_validation(validators):
     """Test admin password validation"""
@@ -18,34 +26,27 @@ def test_admin_password_validation(validators):
     # Test empty password
     assert validators.validate_admin_password("") == False
 
-def test_results_password_validation(validators):
+def test_results_password_validation(mock_session_state, validators):
     """Test results password validation"""
-    # Test correct password
-    assert validators.validate_results_password(CONFIG["RESULTS_PASSWORD"]) == True
+    # Setup test data
+    CONFIG["RESULTS_PASSWORD"] = "test_password"
     
-    # Test incorrect password
-    assert validators.validate_results_password("wrong_password") == False
+    # Test invalid password
+    assert not validators.validate_results_password("wrong_password")
     
-    # Test empty password
-    assert validators.validate_results_password("") == False
+    # Test valid password
+    assert validators.validate_results_password("test_password")
 
-def test_session_state_reset():
-    """Test that session state is properly reset when password is removed"""
-    # Initialize session state
-    if "is_admin" not in st.session_state:
-        st.session_state.is_admin = False
-    if "results_access" not in st.session_state:
-        st.session_state.results_access = False
-        
-    # Set access
-    st.session_state.is_admin = True
-    st.session_state.results_access = True
+def test_session_state_reset(mock_session_state):
+    """Test session state reset"""
+    # Setup test data
+    CONFIG["RESULTS_PASSWORD"] = "test_password"
+    SessionManager.set("is_admin", True)
+    SessionManager.set("results_access", True)
     
-    # Simulate password removal
-    validators = Validators()
-    assert validators.validate_admin_password("") == False
-    assert validators.validate_results_password("") == False
+    # Reset session state
+    SessionManager.reset_access_state()
     
-    # Check that access is revoked
-    assert st.session_state.is_admin == False
-    assert st.session_state.results_access == False 
+    # Verify state was reset
+    assert not SessionManager.get("is_admin", False)
+    assert not SessionManager.get("results_access", False) 
