@@ -379,109 +379,126 @@ class VotingComponent:
             UI_MESSAGES["ERROR_DUPLICATE_VOTE"].format(participant, categoria)
         )
         
-        action = self._get_duplicate_vote_action(participant, categoria)
+        # Store the duplicate vote info in session state
+        SessionManager.set("pending_duplicate_vote", {
+            "name": name,
+            "categoria": categoria,
+            "participant": participant
+        })
         
-        if action == "Remover meu voto anterior para votar novamente":
-            self._handle_vote_removal(name, categoria, participant)
-        else:
-            self.ui.show_info_message("Você pode continuar votando em outros participantes ou categorias.")
-            st.stop()
-
-    def _get_duplicate_vote_action(self, participant: int, categoria: str) -> str:
-        """Get user action for duplicate vote."""
-        return st.radio(
+        # Show options outside the form
+        action = st.radio(
             "Escolha uma opção:",
             ["Manter meu voto anterior", "Remover meu voto anterior para votar novamente"],
             key=f"duplicate_action_{participant}_{categoria}",
         )
+        
+        if action == "Remover meu voto anterior para votar novamente":
+            # Show confirmation button outside the form
+            if st.button("Confirmar remoção do voto", key=f"confirm_remove_{participant}_{categoria}"):
+                with st.spinner("Removendo voto anterior..."):
+                    # Get current data
+                    data = SessionManager.get("data")
+                    
+                    # Remove duplicate vote
+                    data = self.vote_manager.remove_duplicate_vote(
+                        data, name, categoria, str(participant)
+                    )
+                    
+                    # Update session state with new data
+                    SessionManager.set("data", data)
+                    
+                    # Save to file
+                    if self.data_manager.save_data(data):
+                        # Clear cache to ensure fresh data
+                        CacheManager.clear_cache()
+                        
+                        # Reset voting state
+                        SessionManager.reset_voting_state()
+                        
+                        self.ui.show_success_message(UI_MESSAGES["VOTE_REMOVED"])
+                        time.sleep(0.5)
+                        st.rerun()
+        else:
+            self.ui.show_info_message("Você pode continuar votando em outros participantes ou categorias.")
+            st.stop()
 
-    def _handle_vote_removal(self, name: str, categoria: str, participant: int):
-        """Handle vote removal process."""
-        if st.button("Confirmar remoção do voto", key=f"confirm_remove_{participant}_{categoria}"):
-            with st.spinner("Removendo voto anterior..."):
-                data = SessionManager.get("data")
-                data = self.vote_manager.remove_duplicate_vote(
-                    data, name, categoria, str(participant)
-                )
-                SessionManager.set("data", data)
-                if self.data_manager.save_data(data):
-                    self.ui.show_success_message(UI_MESSAGES["VOTE_REMOVED"])
-                    time.sleep(0.5)
-                    st.rerun()
+    def _display_drink_image(self, code: str) -> None:
+        """Display the drink image for the given code.
+        
+        Args:
+            code (str): The drink code to display the image for.
+        """
+        participant, categoria = Anonymizer.get_participant_from_code(code)
+        image_path = os.path.join(CONFIG["IMAGES_DIR"], f"participant_{participant}_{categoria.lower()}.jpg")
+        
+        if os.path.exists(image_path):
+            image = self.image_manager.load_and_resize_image(image_path, width=300)
+            self.ui.display_image(image)
+        else:
+            self.ui.show_warning_message(UI_MESSAGES["NO_PHOTO_AVAILABLE"])
 
     def _render_voting_form(self, name: str, code: str):
-        """Render the voting form"""
-        with st.form(key="voting_form"):
-            drink_name = Anonymizer.get_drink_name(code)
-            st.subheader(f"Drink: {drink_name}")
+        """Render the voting form for a selected drink."""
+        participant, categoria = Anonymizer.get_participant_from_code(code)
+        
+        # Check for duplicate vote before showing the form
+        if self.vote_manager.check_duplicate_vote(
+            SessionManager.get("data", pd.DataFrame()),
+            name,
+            categoria,
+            str(participant)
+        ):
+            self._handle_duplicate_vote(name, categoria, participant)
+            return
+        
+        # Create the voting form
+        with st.form(key=f"voting_form_{code}"):
+            st.subheader(f"Votação para {Anonymizer.get_drink_name(code)}")
             
-            # Show drink photo with container for better responsiveness
-            photo_container = st.container()
-            with photo_container:
-                participant, categoria = Anonymizer.get_participant_from_code(code)
-                image_path = os.path.join(CONFIG["IMAGES_DIR"], f"participant_{participant}_{categoria.lower()}.jpg")
-                if os.path.exists(image_path):
-                    image = self.image_manager.load_and_resize_image(image_path, width=300)
-                    self.ui.display_image(image)
-                else:
-                    self.ui.show_warning_message(UI_MESSAGES["NO_PHOTO_AVAILABLE"])
-
-            # Voting criteria with container for better responsiveness
-            criteria_container = st.container()
-            with criteria_container:
-                st.subheader("Avaliação")
-                # Initialize default values
-                originalidade = 5
-                aparencia = 5
-                sabor = 5
-                
-                for criterion, description in CONFIG["VOTING_CRITERIA"].items():
-                    st.markdown(f"**{criterion}**: {description}")
-                    value = st.slider(
-                        criterion, 
-                        0, 10, 5,
-                        key=f"slider_{criterion}_{code}",
-                        help="Use as setas do teclado para ajustar o valor"
-                    )
-                    if criterion == "Originalidade":
-                        originalidade = value
-                    elif criterion == "Aparencia":
-                        aparencia = value
-                    else:
-                        sabor = value
-
-            # Show vote summary with validation
-            st.markdown(f"### {UI_MESSAGES['VOTE_SUMMARY']}")
-            if originalidade == 0 and aparencia == 0 and sabor == 0:
-                st.warning("⚠️ Todos os critérios estão zerados. Por favor, revise sua avaliação.")
+            # Display drink image
+            self._display_drink_image(code)
             
+            # Get scores
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                originalidade = st.slider(
+                    "Originalidade",
+                    min_value=0,
+                    max_value=10,
+                    value=5,
+                    key=f"originalidade_{code}"
+                )
+            with col2:
+                aparencia = st.slider(
+                    "Aparência",
+                    min_value=0,
+                    max_value=10,
+                    value=5,
+                    key=f"aparencia_{code}"
+                )
+            with col3:
+                sabor = st.slider(
+                    "Sabor",
+                    min_value=0,
+                    max_value=10,
+                    value=5,
+                    key=f"sabor_{code}"
+                )
+            
+            # Show vote summary
+            st.markdown("### Resumo do Voto")
             st.markdown(f"""
-            - **Drink:** {drink_name}
+            - **Drink:** {Anonymizer.get_drink_name(code)}
             - **Originalidade:** {originalidade}/10
             - **Aparência:** {aparencia}/10
             - **Sabor:** {sabor}/10
             """)
-
-            # Add keyboard shortcuts info
-            with st.expander("⌨️ Atalhos de Teclado"):
-                st.markdown(UI_MESSAGES["KEYBOARD_SHORTCUTS"])
-
-            # Add voting progress with better visualization
-            total_votes = len(self._get_available_codes())
-            current_votes = len(SessionManager.get("data")[SessionManager.get("data")['Nome'] == name])
-            progress = min(current_votes / total_votes, 1.0)
             
-            # Show progress with percentage
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.progress(progress)
-            with col2:
-                st.markdown(f"**{progress*100:.1f}%**")
+            # Submit button
+            submitted = st.form_submit_button("✅ Enviar Voto")
             
-            st.markdown(UI_MESSAGES["VOTING_PROGRESS"].format(current_votes, total_votes, progress*100))
-
-            # Single submit button
-            if st.form_submit_button("✅ Enviar Voto", help="Clique para enviar sua avaliação"):
+            if submitted:
                 if originalidade == 0 and aparencia == 0 and sabor == 0:
                     st.error("❌ Não é possível enviar uma avaliação com todos os critérios zerados.")
                 else:
