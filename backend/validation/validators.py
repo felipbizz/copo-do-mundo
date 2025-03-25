@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Tuple
 
 from config import CONFIG, UI_MESSAGES
+from frontend.utils.session_manager import SessionManager
 
 class Validators:
     def validate_vote_data(
@@ -27,8 +28,8 @@ class Validators:
     def validate_results_password(self, password: str) -> bool:
         """Validate results password"""
         is_valid = password == CONFIG["RESULTS_PASSWORD"]
-        if not is_valid and "results_access" in st.session_state:
-            st.session_state.results_access = False
+        if not is_valid:
+            SessionManager.set("results_access", False)
         return is_valid
 
     def check_rate_limit(self, last_votes: dict, name: str) -> tuple[bool, str]:
@@ -48,6 +49,6 @@ class Validators:
     def validate_admin_password(password: str) -> bool:
         """Validate admin password"""
         is_valid = password == CONFIG["ADMIN_PASSWORD"]
-        if not is_valid and "is_admin" in st.session_state:
-            st.session_state.is_admin = False
+        if not is_valid:
+            SessionManager.reset_access_state()
         return is_valid 

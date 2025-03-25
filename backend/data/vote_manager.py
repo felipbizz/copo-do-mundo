@@ -72,4 +72,15 @@ class VoteManager:
                 ].empty:
                     missing_votes.append((categoria, participant))
         
-        return missing_votes 
+        return missing_votes
+
+    def calculate_progress(self, data: pd.DataFrame, name: str, categories: list, num_participants: int) -> float:
+        """Calculate voting progress as a percentage"""
+        # Get total possible votes
+        total_possible_votes = len(categories) * num_participants
+        
+        # Get current votes for this juror
+        current_votes = len(data[data["Nome"] == name])
+        
+        # Calculate progress percentage
+        return (current_votes / total_possible_votes) * 100 
