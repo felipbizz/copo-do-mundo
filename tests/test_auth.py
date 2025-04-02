@@ -22,13 +22,13 @@ def mock_session_state():
 def test_admin_password_validation(validators):
     """Test admin password validation"""
     # Test correct password
-    assert validators.validate_admin_password(CONFIG["ADMIN_PASSWORD"]) == True
+    assert validators.validate_admin_password(CONFIG["ADMIN_PASSWORD"]) is True
 
     # Test incorrect password
-    assert validators.validate_admin_password("wrong_password") == False
+    assert validators.validate_admin_password("wrong_password") is False
 
     # Test empty password
-    assert validators.validate_admin_password("") == False
+    assert validators.validate_admin_password("") is False
 
 
 def test_results_password_validation(mock_session_state, validators):

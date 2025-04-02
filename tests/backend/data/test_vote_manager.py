@@ -56,7 +56,7 @@ def test_check_duplicate_vote(vote_manager, sample_vote_data):
         vote_manager.check_duplicate_vote(
             sample_vote_data, name="Test User", categoria="Caipirinha", participant="1"
         )
-        == True
+        is True
     )
 
     # Test different category (should not be duplicate)
@@ -64,7 +64,7 @@ def test_check_duplicate_vote(vote_manager, sample_vote_data):
         vote_manager.check_duplicate_vote(
             sample_vote_data, name="Test User", categoria="Livre", participant="1"
         )
-        == False
+        is False
     )
 
     # Test different participant (should not be duplicate)
@@ -72,7 +72,7 @@ def test_check_duplicate_vote(vote_manager, sample_vote_data):
         vote_manager.check_duplicate_vote(
             sample_vote_data, name="Test User", categoria="Caipirinha", participant="2"
         )
-        == False
+        is False
     )
 
     # Test different user (should not be duplicate)
@@ -80,7 +80,7 @@ def test_check_duplicate_vote(vote_manager, sample_vote_data):
         vote_manager.check_duplicate_vote(
             sample_vote_data, name="Other User", categoria="Caipirinha", participant="1"
         )
-        == False
+        is False
     )
 
 

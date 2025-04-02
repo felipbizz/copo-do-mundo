@@ -28,11 +28,11 @@ def test_image_path(tmp_path):
 def test_save_image(image_manager, test_image, test_image_path):
     """Test saving an image"""
     # Test saving valid image
-    assert image_manager.save_image(test_image, test_image_path) == True
+    assert image_manager.save_image(test_image, test_image_path) is True
     assert os.path.exists(test_image_path)
 
     # Test saving invalid image
-    assert image_manager.save_image(None, test_image_path) == False
+    assert image_manager.save_image(None, test_image_path) is False
 
 
 def test_delete_image(image_manager, test_image, test_image_path):
@@ -41,11 +41,11 @@ def test_delete_image(image_manager, test_image, test_image_path):
     image_manager.save_image(test_image, test_image_path)
 
     # Test deleting existing image
-    assert image_manager.delete_image(test_image_path) == True
+    assert image_manager.delete_image(test_image_path) is True
     assert not os.path.exists(test_image_path)
 
     # Test deleting non-existent image
-    assert image_manager.delete_image("nonexistent.jpg") == False
+    assert image_manager.delete_image("nonexistent.jpg") is False
 
 
 def test_optimize_image(image_manager, test_image):

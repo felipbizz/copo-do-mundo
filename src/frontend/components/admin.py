@@ -93,15 +93,13 @@ class AdminComponent:
         st.markdown(f"**Status atual:** {status}")
 
         # Only show toggle button if user is admin
-        if SessionManager.get("is_admin", False):
-            # Single toggle button
-            if st.button(
-                "🔓 Liberar Resultados" if not results_access else "🔒 Bloquear Resultados",
-                key="toggle_results",
-            ):
-                SessionManager.set("results_access", not results_access)
-                CacheManager.invalidate_results_cache()
-                st.rerun()
+        if SessionManager.get("is_admin", False) and st.button(
+            "🔓 Liberar Resultados" if not results_access else "🔒 Bloquear Resultados",
+            key="toggle_results",
+        ):
+            SessionManager.set("results_access", not results_access)
+            CacheManager.invalidate_results_cache()
+            st.rerun()
 
     def _render_data_export(self):
         """Render data export section"""

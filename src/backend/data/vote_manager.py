@@ -72,7 +72,7 @@ class VoteManager:
             return vote
 
         except Exception as e:
-            raise VoteManagerError(f"Error creating vote: {str(e)}")
+            raise VoteManagerError(f"Error creating vote: {str(e)}") from e
 
     def check_duplicate_vote(
         self, data: pd.DataFrame, name: str, categoria: str, participant: str
@@ -130,7 +130,7 @@ class VoteManager:
             return result
 
         except Exception as e:
-            raise VoteManagerError(f"Error removing duplicate vote: {str(e)}")
+            raise VoteManagerError(f"Error removing duplicate vote: {str(e)}") from e
 
     def get_missing_votes(
         self, data: pd.DataFrame, name: str, categories: list[str], num_participants: int
@@ -144,7 +144,7 @@ class VoteManager:
             num_participants (int): Total number of participants.
 
         Returns:
-            List[Tuple[str, int]]: List of tuples containing (category, participant_id) for missing votes.
+            List[Tuple[str, int]]: List of tuples (category, participant_id) for missing votes.
         """
         missing_votes: list[tuple[str, int]] = []
 

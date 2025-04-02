@@ -125,7 +125,7 @@ class VotingComponent:
         """Get list of available drink codes"""
         # Get all codes that have photos
         available_codes = []
-        for code in Anonymizer.get_all_codes().keys():
+        for code in Anonymizer.get_all_codes():
             participant, categoria = Anonymizer.get_participant_from_code(code)
             image_path = os.path.join(
                 CONFIG["IMAGES_DIR"], f"participant_{participant}_{categoria.lower()}.jpg"

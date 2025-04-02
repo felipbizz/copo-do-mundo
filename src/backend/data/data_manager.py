@@ -57,7 +57,7 @@ class DataManager:
                 df.to_csv(self.data_file, index=False)
                 logger.info(f"Created new data file at {self.data_file}")
         except Exception as e:
-            raise DataManagerError(f"Failed to create data file: {str(e)}")
+            raise DataManagerError(f"Failed to create data file: {str(e)}") from e
 
     def load_data(self) -> pd.DataFrame:
         """Load voting data from CSV file.
@@ -75,7 +75,7 @@ class DataManager:
             logger.info(f"Successfully loaded {len(df)} votes from {self.data_file}")
             return df
         except Exception as e:
-            raise DataManagerError(f"Error loading data: {str(e)}")
+            raise DataManagerError(f"Error loading data: {str(e)}") from e
 
     def save_data(self, data: pd.DataFrame) -> bool:
         """Save voting data to CSV file.
@@ -94,7 +94,7 @@ class DataManager:
             logger.info(f"Successfully saved {len(data)} votes to {self.data_file}")
             return True
         except Exception as e:
-            raise DataManagerError(f"Error saving data: {str(e)}")
+            raise DataManagerError(f"Error saving data: {str(e)}") from e
 
     def get_total_votes(self, data: pd.DataFrame) -> int:
         """Get total number of votes.
@@ -149,7 +149,7 @@ class DataManager:
             return df_avg, winners
 
         except Exception as e:
-            raise DataManagerError(f"Error calculating results: {str(e)}")
+            raise DataManagerError(f"Error calculating results: {str(e)}") from e
 
     def get_participant_stats(self, data: pd.DataFrame, participant: int) -> dict[str, Any]:
         """Get statistics for a specific participant.
@@ -200,4 +200,4 @@ class DataManager:
             return stats
 
         except Exception as e:
-            raise DataManagerError(f"Error getting participant stats: {str(e)}")
+            raise DataManagerError(f"Error getting participant stats: {str(e)}") from e
