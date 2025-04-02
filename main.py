@@ -1,12 +1,12 @@
 import os
-import streamlit as st
-from datetime import datetime
 
-from backend.data.data_manager import DataManager
+import streamlit as st
+
 from config import CONFIG
 from frontend.components.admin import AdminComponent
 from frontend.components.voting import VotingComponent
 from frontend.utils.session_manager import SessionManager
+
 
 def main():
     """Main application flow"""
@@ -16,11 +16,7 @@ def main():
         page_icon="🍹",
         layout="wide",
         initial_sidebar_state="expanded",
-        menu_items={
-            'Get Help': None,
-            'Report a bug': None,
-            'About': None
-        }
+        menu_items={"Get Help": None, "Report a bug": None, "About": None},
     )
 
     # Initialize session state
@@ -39,6 +35,7 @@ def main():
 
     # Render main voting component
     voting.render()
+
 
 if __name__ == "__main__":
     main()

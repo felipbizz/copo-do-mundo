@@ -1,6 +1,3 @@
-import os
-from datetime import timedelta
-
 CONFIG = {
     "DATA_FILE": "data/votes.csv",
     "IMAGES_DIR": "data/images",
@@ -10,12 +7,12 @@ CONFIG = {
         1: "Participante 1",
         2: "Participante 2",
         3: "Participante 3",
-        4: "Participante 4"
+        4: "Participante 4",
     },
     "VOTING_CRITERIA": {
         "Originalidade": "Avalie a criatividade e inovação do drink",
         "Aparencia": "Avalie a apresentação visual do drink",
-        "Sabor": "Avalie o sabor e equilíbrio do drink"
+        "Sabor": "Avalie o sabor e equilíbrio do drink",
     },
     "IMAGE_MAX_SIZE": (800, 800),
     "ADMIN_PASSWORD": "admin2024",
@@ -72,5 +69,5 @@ UI_MESSAGES = {
     - **Enter:** Enviar voto
     - **Esc:** Cancelar voto
     """,
-    "VOTING_PROGRESS": "**Progresso:** {}/{} votos ({:.1f}%)"
+    "VOTING_PROGRESS": "**Progresso:** {}/{} votos ({:.1f}%)",
 }

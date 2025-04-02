@@ -184,11 +184,14 @@ def get_missing_votes(name: str) -> list:
         for drink in range(1, st.session_state.num_drinks + 1):
             image_path = os.path.join(CONFIG["IMAGES_DIR"], f"drink_{drink}.jpg")
             if os.path.exists(image_path):
-                if st.session_state.data.empty or st.session_state.data[
-                    (st.session_state.data["Nome"] == name)
-                    & (st.session_state.data["Categoria"] == categoria)
-                    & (st.session_state.data["Drink"] == drink)
-                ].empty:
+                if (
+                    st.session_state.data.empty
+                    or st.session_state.data[
+                        (st.session_state.data["Nome"] == name)
+                        & (st.session_state.data["Categoria"] == categoria)
+                        & (st.session_state.data["Drink"] == drink)
+                    ].empty
+                ):
                     missing_votes.append((categoria, drink))
     return missing_votes
 

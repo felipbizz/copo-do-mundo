@@ -1,8 +1,6 @@
 import streamlit as st
-from typing import Optional
 from PIL import Image
 
-from config import UI_MESSAGES
 
 class UIUtils:
     @staticmethod
@@ -26,7 +24,7 @@ class UIUtils:
         st.warning(message)
 
     @staticmethod
-    def display_image(image: Optional[Image.Image], caption: Optional[str] = None) -> None:
+    def display_image(image: Image.Image | None, caption: str | None = None) -> None:
         """Display image with optional caption"""
         if image:
             st.image(image, caption=caption, use_container_width=False)
@@ -51,4 +49,4 @@ class UIUtils:
     @staticmethod
     def create_spinner(message: str):
         """Create a spinner with specified message"""
-        return st.spinner(message) 
+        return st.spinner(message)

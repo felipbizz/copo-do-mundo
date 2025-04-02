@@ -1,12 +1,13 @@
 import os
-from typing import Optional
+
 from PIL import Image
 
 from config import CONFIG, UI_MESSAGES
 
+
 class ImageManager:
     @staticmethod
-    def load_and_resize_image(image_path: str, width: Optional[int] = None) -> Optional[Image.Image]:
+    def load_and_resize_image(image_path: str, width: int | None = None) -> Image.Image | None:
         """Load and resize image"""
         try:
             image = Image.open(image_path)
@@ -20,7 +21,7 @@ class ImageManager:
             return None
 
     @staticmethod
-    def optimize_image(image: Image.Image) -> Optional[Image.Image]:
+    def optimize_image(image: Image.Image) -> Image.Image | None:
         """Optimize image"""
         try:
             if not image:
@@ -51,7 +52,7 @@ class ImageManager:
             if image is None:
                 print("Imagem inválida ou corrompida")
                 return False
-                
+
             optimized_image = ImageManager.optimize_image(image)
             if optimized_image:
                 # Ensure the directory exists
@@ -75,4 +76,4 @@ class ImageManager:
             return False
         except Exception as e:
             print(UI_MESSAGES["ERROR_PHOTO"].format(str(e)))
-            return False 
+            return False

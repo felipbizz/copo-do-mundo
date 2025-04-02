@@ -1,9 +1,8 @@
-import streamlit as st
 from datetime import datetime, timedelta
-from typing import Dict, Tuple
 
-from config import CONFIG, UI_MESSAGES
+from config import CONFIG
 from frontend.utils.session_manager import SessionManager
+
 
 class Validators:
     def validate_vote_data(
@@ -12,17 +11,17 @@ class Validators:
         """Validate vote data"""
         if not name.strip():
             return False, "Nome do jurado é obrigatório"
-        
+
         if not categoria:
             return False, "Categoria é obrigatória"
-        
+
         try:
             participant_num = int(participant)
             if participant_num < 1 or participant_num > num_participants:
                 return False, f"Participante deve estar entre 1 e {num_participants}"
         except ValueError:
             return False, "Participante deve ser um número válido"
-        
+
         return True, ""
 
     def validate_results_password(self, password: str) -> bool:
@@ -51,4 +50,4 @@ class Validators:
         is_valid = password == CONFIG["ADMIN_PASSWORD"]
         if not is_valid:
             SessionManager.reset_access_state()
-        return is_valid 
+        return is_valid
