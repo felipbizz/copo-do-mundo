@@ -89,6 +89,23 @@ gcloud builds submit --config deploy/gcp/cloudbuild.yaml
 
 Para mais detalhes, consulte a [documentação completa](docs/README.md).
 
+## Tutorial deploy:
+
+Suba a sua imagem docker no dockerhub com os comandos abaixo:
+
+Faz login na sua conta:
+`docker login`
+
+Define a tag da imagem:
+`docker tag copo-do-mundo seu_user/copo-do-mundo:latest`
+
+Sobe a imagem pro repositório:
+`docker push seu_user/copo-do-mundo:latest`
+
+No google cloud shell, rode o comando: 
+
+`gcloud run deploy copo-do-mundo --image docker.io/seu_user/copo-do-mundo:latest --port 8501`
+
 ## 🤝 Contribuindo
 
 Contribuições são bem-vindas! Por favor, consulte o [guia de desenvolvimento](docs/development.md).
