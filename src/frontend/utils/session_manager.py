@@ -83,24 +83,3 @@ class SessionManager:
     def update_last_vote(name: str) -> None:
         """Update the last vote timestamp for a user"""
         st.session_state.last_votes[name] = datetime.now()
-
-    @staticmethod
-    def can_vote(name: str) -> bool:
-        """Check if a user can vote based on rate limit"""
-        if name not in st.session_state.last_votes:
-            return True
-
-        time_since_last_vote = datetime.now() - st.session_state.last_votes[name]
-        return time_since_last_vote.total_seconds() >= CONFIG["RATE_LIMIT"]
-
-    @staticmethod
-    def clear_juror_name() -> None:
-        """Clear juror name and related states"""
-        st.session_state.juror_name = ""
-        st.session_state.has_valid_juror = False
-
-    @staticmethod
-    def set_juror_name(name: str) -> None:
-        """Set juror name and validate it"""
-        st.session_state.juror_name = name.strip()
-        st.session_state.has_valid_juror = bool(name.strip())

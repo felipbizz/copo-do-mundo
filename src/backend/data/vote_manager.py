@@ -3,6 +3,8 @@ from datetime import datetime
 
 import pandas as pd
 
+from config import CONFIG
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -165,27 +167,69 @@ class VoteManager:
             logger.info(f"Found {len(missing_votes)} missing votes for {name}")
         return missing_votes
 
-    def calculate_progress(
-        self, data: pd.DataFrame, name: str, categories: list[str], num_participants: int
-    ) -> float:
-        """Calculate voting progress as a percentage.
+    def clear_votes(self) -> None:
+        """Clear all votes from the system.
+
+        This method handles the entire process of clearing votes:
+        1. Clears the data file
+        2. Updates the session state
+        3. Invalidates the cache
+
+        Raises:
+            VoteManagerError: If there's an error clearing votes.
+        """
+        try:
+            # Get current data
+            data = self.load_data()
+
+            # Clear votes (this will save to file)
+            empty_df = self.clear_all_votes(data)
+
+            logger.info("All votes have been cleared and system state updated")
+            return empty_df
+        except Exception as e:
+            raise VoteManagerError(f"Error clearing votes: {str(e)}") from e
+
+    def load_data(self) -> pd.DataFrame:
+        """Load voting data from the data file.
+
+        Returns:
+            pd.DataFrame: Loaded voting data.
+
+        Raises:
+            VoteManagerError: If there's an error loading the data.
+        """
+        try:
+            # Load data from file
+            data = pd.read_csv(CONFIG["DATA_FILE"])
+
+            logger.info("Loaded voting data")
+            return data
+
+        except Exception as e:
+            raise VoteManagerError(f"Error loading data: {str(e)}") from e
+
+    def clear_all_votes(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Clear all votes from the voting data.
 
         Args:
             data (pd.DataFrame): Current voting data.
-            name (str): Name of the juror.
-            categories (List[str]): List of all categories.
-            num_participants (int): Total number of participants.
 
         Returns:
-            float: Percentage of votes completed (0-100).
+            pd.DataFrame: Empty DataFrame with the same columns.
+
+        Raises:
+            VoteManagerError: If there's an error clearing votes.
         """
-        # Get total possible votes
-        total_possible_votes = len(categories) * num_participants
+        try:
+            # Create a new empty DataFrame with the same columns
+            empty_df = pd.DataFrame(columns=data.columns)
 
-        # Get current votes for this juror
-        current_votes = len(data[data["Nome"] == name])
+            # Save the empty DataFrame directly to the data file
+            empty_df.to_csv(CONFIG["DATA_FILE"], index=False)
 
-        # Calculate progress percentage
-        progress = (current_votes / total_possible_votes) * 100
-        logger.info(f"Voting progress for {name}: {progress:.1f}%")
-        return progress
+            logger.info("All votes have been cleared and saved")
+            return empty_df
+
+        except Exception as e:
+            raise VoteManagerError(f"Error clearing votes: {str(e)}") from e

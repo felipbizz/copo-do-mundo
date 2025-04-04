@@ -35,18 +35,3 @@ class UIUtils:
     def create_columns(ratios: list[int]) -> list:
         """Create columns with specified ratios"""
         return st.columns(ratios)
-
-    @staticmethod
-    def create_tabs(tab_names: list[str]) -> list:
-        """Create tabs with specified names"""
-        return st.tabs(tab_names)
-
-    @staticmethod
-    def create_expander(title: str):
-        """Create an expander with specified title"""
-        return st.expander(title)
-
-    @staticmethod
-    def create_spinner(message: str):
-        """Create a spinner with specified message"""
-        return st.spinner(message)

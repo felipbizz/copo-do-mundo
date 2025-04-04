@@ -4,6 +4,7 @@ import time
 import streamlit as st
 from PIL import Image
 
+from backend.data.vote_manager import VoteManager
 from backend.image.image_manager import ImageManager
 from backend.validation.validators import Validators
 from config import CONFIG, UI_MESSAGES
@@ -19,6 +20,7 @@ class AdminComponent:
         Anonymizer.initialize_anonymization()
         self.image_manager = ImageManager()
         self.validators = Validators()
+        self.vote_manager = VoteManager()
         self.ui = UIUtils()
 
     def render(self):
@@ -28,7 +30,22 @@ class AdminComponent:
 
         # If admin is authenticated, render admin content
         if SessionManager.get("is_admin", False):
-            self._render_admin_content()
+            st.title("Área Administrativa! 👨‍💼")
+
+            # Configuration expander at the beginning
+            self._render_configuracoes_gerais()
+
+            # Codes and drink names
+            self._render_codes_and_drink_names()
+
+            # Photo management
+            self._render_photo_management()
+
+            # Results access
+            self._render_results_access()
+
+            # Data management
+            self._render_data_management()
 
     def _render_admin_login(self):
         """Render admin login section in sidebar."""
@@ -46,28 +63,14 @@ class AdminComponent:
         else:
             SessionManager.reset_access_state()
 
-    def _render_admin_content(self):
-        """Render admin content when authenticated."""
-        # Render sidebar controls
-        with st.sidebar:
-            # Render competition settings
-            st.markdown("---")
-            self._render_competition_settings()
+    def _render_configuracoes_gerais(self):
+        with st.expander("⚙️ Configurações Gerais", expanded=True):
+            # Definindo número de participantes
+            self._define_num_participantes()
+            # Category management
+            self._define_categorias()
 
-            # Render photo management in main area
-            self._render_photo_management()
-
-            # Render results access control
-            st.markdown("---")
-            self._render_results_access()
-
-            # Render data export at the bottom
-            st.markdown("---")
-            self._render_data_export()
-
-    def _render_competition_settings(self):
-        """Render competition settings section"""
-        st.subheader("⚙️ Configurações")
+    def _define_num_participantes(self):
         new_num_participants = st.number_input(
             "Número de Participantes",
             min_value=1,
@@ -81,25 +84,41 @@ class AdminComponent:
                 time.sleep(0.5)
                 st.rerun()
 
-    def _render_results_access(self):
-        """Render results access control with cache invalidation"""
-        st.subheader("🔒 Controle de Acesso aos Resultados")
+    def _define_categorias(self):
+        st.markdown("---")
+        st.subheader("🏷️ Gerenciamento de Categorias")
 
-        # Get current state
-        results_access = SessionManager.get("results_access", False)
+        # Get current categories
+        current_categories = SessionManager.get("categories", CONFIG["CATEGORIES"])
 
-        # Show current status
-        status = "🔓 Liberado" if results_access else "🔒 Bloqueado"
-        st.markdown(f"**Status atual:** {status}")
+        # Display current categories
+        st.write("**Categorias Atuais:**")
+        for i, category in enumerate(current_categories):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                new_category = st.text_input(
+                    f"Categoria {i + 1}", value=category, key=f"category_{i}"
+                )
+            with col2:
+                if st.button("Remover", key=f"remove_{i}"):
+                    with st.spinner("Atualizando categorias..."):
+                        current_categories.pop(i)
+                        SessionManager.set("categories", current_categories)
+                        st.rerun()
 
-        # Only show toggle button if user is admin
-        if SessionManager.get("is_admin", False) and st.button(
-            "🔓 Liberar Resultados" if not results_access else "🔒 Bloquear Resultados",
-            key="toggle_results",
-        ):
-            SessionManager.set("results_access", not results_access)
-            CacheManager.invalidate_results_cache()
-            st.rerun()
+            # Update category if changed
+            if new_category != category:
+                with st.spinner("Atualizando categorias..."):
+                    current_categories[i] = new_category
+                    SessionManager.set("categories", current_categories)
+                    st.rerun()
+
+        # Add new category
+        if st.button("Adicionar Nova Categoria"):
+            with st.spinner("Atualizando categorias..."):
+                current_categories.append("Nova Categoria")
+                SessionManager.set("categories", current_categories)
+                st.rerun()
 
     def _render_data_export(self):
         """Render data export section"""
@@ -118,10 +137,28 @@ class AdminComponent:
                 except Exception as e:
                     self.ui.show_error_message(UI_MESSAGES["ERROR_EXPORT_DATA"].format(str(e)))
 
-    def _render_photo_management(self):
-        """Render photo management section"""
-        st.subheader("📸 Gerenciamento de Fotos")
+    def _render_clear_votes(self):
+        """Render clear votes section"""
+        st.subheader("🗑️ Limpar Votos")
+        if st.button("Limpar Todos os Votos", key="clear_votes"):
+            with st.spinner("Limpando votos..."):
+                try:
+                    # Clear votes using VoteManager
+                    empty_df = self.vote_manager.clear_votes()
 
+                    # Update session state
+                    SessionManager.set("data", empty_df)
+
+                    # Invalidate cache
+                    CacheManager.invalidate_results_cache()
+
+                    st.success("Votos limpos com sucesso!")
+                    time.sleep(0.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao limpar votos: {str(e)}")
+
+    def _render_codes_and_drink_names(self):
         # Show current drink codes and names
         with st.expander("🔑 Códigos e Nomes dos Drinks"):
             st.markdown("### Drinks Cadastrados")
@@ -159,37 +196,42 @@ class AdminComponent:
                 st.success("Códigos regenerados com sucesso!")
                 st.rerun()
 
-        # Photo upload section
-        st.markdown("### Upload de Fotos")
+    def _render_photo_management(self):
+        """Render photo management section"""
+        with st.expander("📸 Gerenciamento de Fotos"):
+            # Photo upload section
+            st.markdown("### Upload de Fotos")
 
-        # Create columns for participant and category selection
-        col1, col2 = self.ui.create_columns([1, 1])
+            # Create columns for participant and category selection
+            col1, col2 = self.ui.create_columns([1, 1])
 
-        with col1:
-            # Participant selection
-            participant = st.selectbox(
-                "Participante",
-                options=list(range(1, SessionManager.get("num_participants") + 1)),
-                key="admin_participant_select",
+            with col1:
+                # Participant selection
+                participant = st.selectbox(
+                    "Participante",
+                    options=list(range(1, SessionManager.get("num_participants") + 1)),
+                    key="admin_participant_select",
+                )
+
+            with col2:
+                # Category selection
+                category = st.selectbox(
+                    "Categoria",
+                    options=SessionManager.get("categories"),
+                    key="admin_category_select",
+                )
+
+            # Photo section in full width below
+            st.markdown("---")
+
+            # Current photo section
+            st.markdown("### 📸 Foto Atual")
+            image_path = os.path.join(
+                CONFIG["IMAGES_DIR"], f"participant_{participant}_{category.lower()}.jpg"
             )
-
-        with col2:
-            # Category selection
-            category = st.selectbox(
-                "Categoria", options=SessionManager.get("categories"), key="admin_category_select"
-            )
-
-        # Photo section in full width below
-        st.markdown("---")
-
-        # Current photo section
-        st.markdown("### 📸 Foto Atual")
-        image_path = os.path.join(
-            CONFIG["IMAGES_DIR"], f"participant_{participant}_{category.lower()}.jpg"
-        )
-        if os.path.exists(image_path):
-            image = self.image_manager.load_and_resize_image(image_path, width=300)
-            self.ui.display_image(image)
+            if os.path.exists(image_path):
+                image = self.image_manager.load_and_resize_image(image_path, width=300)
+                self.ui.display_image(image)
 
             # Add remove button
             if st.button("🗑️ Remover Foto", key=f"remove_{participant}_{category}"):
@@ -202,84 +244,109 @@ class AdminComponent:
                         st.rerun()
                     except Exception as e:
                         self.ui.show_error_message(f"Erro ao remover foto: {str(e)}")
-        else:
-            self.ui.show_info_message(
-                "Nenhuma foto disponível para este participante nesta categoria"
+            else:
+                self.ui.show_info_message(
+                    "Nenhuma foto disponível para este participante nesta categoria"
+                )
+
+            # New photo section
+            st.markdown("### 📤 Nova Foto")
+            # Choose between upload and camera
+            photo_method = st.radio(
+                "Escolha o método de captura",
+                ["Upload de Arquivo", "Câmera"],
+                horizontal=True,
+                key=f"photo_method_{participant}_{category}",
             )
 
-        # New photo section
-        st.markdown("### 📤 Nova Foto")
-        # Choose between upload and camera
-        photo_method = st.radio(
-            "Escolha o método de captura",
-            ["Upload de Arquivo", "Câmera"],
-            horizontal=True,
-            key=f"photo_method_{participant}_{category}",
-        )
+            if photo_method == "Upload de Arquivo":
+                # Photo upload section
+                uploaded_file = st.file_uploader(
+                    "Selecione uma foto",
+                    type=CONFIG["ALLOWED_IMAGE_TYPES"],
+                    key=f"upload_{participant}_{category}",
+                )
 
-        if photo_method == "Upload de Arquivo":
-            # Photo upload section
-            uploaded_file = st.file_uploader(
-                "Selecione uma foto",
-                type=CONFIG["ALLOWED_IMAGE_TYPES"],
-                key=f"upload_{participant}_{category}",
-            )
+                if uploaded_file:
+                    # Show preview
+                    image = Image.open(uploaded_file)
+                    self.ui.display_image(image)
 
-            if uploaded_file:
-                # Show preview
-                image = Image.open(uploaded_file)
-                self.ui.display_image(image)
+                    # Add upload button
+                    if st.button("💾 Salvar Foto", key=f"save_upload_{participant}_{category}"):
+                        with st.spinner("Processando foto..."):
+                            try:
+                                # Optimize and save image
+                                optimized_image = self.image_manager.optimize_image(image)
+                                optimized_image.save(
+                                    image_path, quality=CONFIG["IMAGE_QUALITY"], optimize=True
+                                )
+                                self.ui.show_success_message("Foto salva com sucesso!")
+                                time.sleep(0.5)
+                                CacheManager.invalidate_results_cache()
+                                st.rerun()
+                            except Exception as e:
+                                self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}")
 
-                # Add upload button
-                if st.button("💾 Salvar Foto", key=f"save_upload_{participant}_{category}"):
-                    with st.spinner("Processando foto..."):
-                        try:
-                            # Optimize and save image
-                            optimized_image = self.image_manager.optimize_image(image)
-                            optimized_image.save(
-                                image_path, quality=CONFIG["IMAGE_QUALITY"], optimize=True
-                            )
-                            self.ui.show_success_message("Foto salva com sucesso!")
-                            time.sleep(0.5)
-                            CacheManager.invalidate_results_cache()
-                            st.rerun()
-                        except Exception as e:
-                            self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}")
+            else:
+                # Camera section
+                camera_image = st.camera_input(
+                    "Tire uma foto", key=f"camera_{participant}_{category}"
+                )
 
-        else:
-            # Camera section
-            camera_image = st.camera_input("Tire uma foto", key=f"camera_{participant}_{category}")
+                if camera_image:
+                    # Show preview
+                    self.ui.display_image(camera_image)
 
-            if camera_image:
-                # Show preview
-                self.ui.display_image(camera_image)
+                    # Add save button with unique key
+                    if st.button(
+                        "💾 Salvar Foto da Câmera", key=f"save_camera_{participant}_{category}"
+                    ):
+                        with st.spinner("Processando foto..."):
+                            try:
+                                # Convert camera image to PIL Image if needed
+                                if not isinstance(camera_image, Image.Image):
+                                    camera_image = Image.open(camera_image)
 
-                # Add save button with unique key
-                if st.button(
-                    "💾 Salvar Foto da Câmera", key=f"save_camera_{participant}_{category}"
-                ):
-                    with st.spinner("Processando foto..."):
-                        try:
-                            # Convert camera image to PIL Image if needed
-                            if not isinstance(camera_image, Image.Image):
-                                camera_image = Image.open(camera_image)
+                                # Optimize and save image
+                                optimized_image = self.image_manager.optimize_image(camera_image)
+                                optimized_image.save(
+                                    image_path, quality=CONFIG["IMAGE_QUALITY"], optimize=True
+                                )
+                                self.ui.show_success_message("Foto salva com sucesso!")
+                                time.sleep(0.5)
+                                CacheManager.invalidate_results_cache()
+                                st.rerun()
+                            except Exception as e:
+                                self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}")
 
-                            # Optimize and save image
-                            optimized_image = self.image_manager.optimize_image(camera_image)
-                            optimized_image.save(
-                                image_path, quality=CONFIG["IMAGE_QUALITY"], optimize=True
-                            )
-                            self.ui.show_success_message("Foto salva com sucesso!")
-                            time.sleep(0.5)
-                            CacheManager.invalidate_results_cache()
-                            st.rerun()
-                        except Exception as e:
-                            self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}")
+    def _render_results_access(self):
+        """Render results access control with cache invalidation"""
+        with st.expander("🔒 Controle de Acesso aos Resultados"):
+            # Get current state
+            results_access = SessionManager.get("results_access", False)
 
-    def _handle_photo_upload(self):
-        """Handle photo upload and invalidate cache"""
-        CacheManager.invalidate_results_cache()
+            # Show current status
+            status = "🔓 Liberado" if results_access else "🔒 Bloqueado"
+            st.markdown(f"**Status atual:** {status}")
 
-    def _handle_photo_delete(self):
-        """Handle photo deletion and invalidate cache"""
-        CacheManager.invalidate_results_cache()
+            # Only show toggle button if user is admin
+            if SessionManager.get("is_admin", False) and st.button(
+                "🔓 Liberar Resultados" if not results_access else "🔒 Bloquear Resultados",
+                key="toggle_results",
+            ):
+                SessionManager.set("results_access", not results_access)
+                CacheManager.invalidate_results_cache()
+                st.rerun()
+
+    def _render_data_management(self):
+        """Render data management section"""
+        with st.expander("💾 Gerenciamento de Dados", expanded=False):
+            # Clear votes and export data side by side
+            col1, col2 = st.columns(2)
+
+            with col1:
+                self._render_clear_votes()
+
+            with col2:
+                self._render_data_export()

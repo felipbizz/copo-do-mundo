@@ -123,16 +123,8 @@ class VotingComponent:
 
     def _get_available_codes(self) -> list:
         """Get list of available drink codes"""
-        # Get all codes that have photos
-        available_codes = []
-        for code in Anonymizer.get_all_codes():
-            participant, categoria = Anonymizer.get_participant_from_code(code)
-            image_path = os.path.join(
-                CONFIG["IMAGES_DIR"], f"participant_{participant}_{categoria.lower()}.jpg"
-            )
-            if os.path.exists(image_path):
-                available_codes.append(code)
-        return available_codes
+        # Return all codes, regardless of photo availability
+        return Anonymizer.get_all_codes()
 
     def _show_draft_votes(self, name: str):
         """Display saved draft votes."""
@@ -442,7 +434,7 @@ class VotingComponent:
             )
             st.stop()
 
-    def _display_drink_image(self, code: str) -> None:
+    def _display_drink_image(self, code: str):
         """Display the drink image for the given code.
 
         Args:
@@ -457,7 +449,7 @@ class VotingComponent:
             image = self.image_manager.load_and_resize_image(image_path, width=300)
             self.ui.display_image(image)
         else:
-            self.ui.show_warning_message(UI_MESSAGES["NO_PHOTO_AVAILABLE"])
+            st.info("Imagem ainda não disponível para este drink. Será que ele já ta pronto?")
 
     def _render_voting_form(self, name: str, code: str):
         """Render the voting form for a selected drink."""
@@ -491,13 +483,13 @@ class VotingComponent:
                 sabor = st.slider("Sabor", min_value=0, max_value=10, value=5, key=f"sabor_{code}")
 
             # Show vote summary
-            st.markdown("### Resumo do Voto")
-            st.markdown(f"""
-            - **Drink:** {Anonymizer.get_drink_name(code)}
-            - **Originalidade:** {originalidade}/10
-            - **Aparência:** {aparencia}/10
-            - **Sabor:** {sabor}/10
-            """)
+            # st.markdown("### Resumo do Voto")
+            # st.markdown(f"""
+            # - **Drink:** {Anonymizer.get_drink_name(code)}
+            # - **Originalidade:** {originalidade}/10
+            # - **Aparência:** {aparencia}/10
+            # - **Sabor:** {sabor}/10
+            # """)
 
             # Submit button
             submitted = st.form_submit_button("✅ Enviar Voto")
@@ -509,13 +501,6 @@ class VotingComponent:
                     )
                 else:
                     self._handle_vote_submission(name, code, originalidade, aparencia, sabor)
-
-    def _render_statistics(self, data):
-        """Render statistics section"""
-        st.markdown("---")
-        total_votes = self.data_manager.get_total_votes(data)
-        st.markdown("### 📈 Estatísticas")
-        st.markdown(f"**Total de votos:** {total_votes}")
 
     def _render_detailed_results(self, df_avg):
         """Render detailed results section"""
