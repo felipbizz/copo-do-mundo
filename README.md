@@ -54,7 +54,7 @@ uv pip install .
 
 3. Execute a aplicação:
 ```bash
-streamlit run main.py
+streamlit run src/main.py
 ```
 
 4. Acesse no navegador:
