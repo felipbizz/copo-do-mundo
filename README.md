@@ -63,15 +63,14 @@ streamlit run main.py
 ## 📁 Estrutura do Projeto
 
 ```
-copo-do-mundo/
-├── backend/          # Lógica de negócio
-├── frontend/         # Interface do usuário
+copo-do-mundo/     
+├── pyproject.toml   # Dependências e configurações de lint/format
 ├── data/            # Dados e imagens
-├── docs/            # Documentação
-├── deploy/          # Arquivos de deploy
-│   └── gcp/        # Configurações do Google Cloud
-├── main.py          # Ponto de entrada
-└── pyproject.toml   # Configuração do projeto
+└── src
+    ├── backend      # Lógica de negócio
+    ├── frontend     # Interface do usuário
+    ├── config.py    # Configurações de constantes
+    └── main.py      # Ponto de entrada
 ```
 
 ## 🚀 Deploy
