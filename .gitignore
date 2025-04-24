@@ -100,3 +100,6 @@ deploy/gcp/*.key
 deploy/gcp/*.json
 deploy/gcp/.env
 deploy/gcp/.env.*
+
+*.json
+base64_credentials

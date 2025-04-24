@@ -96,6 +96,9 @@ Suba a sua imagem docker no dockerhub com os comandos abaixo:
 Faz login na sua conta:
 `docker login`
 
+Builda a imagem:
+`docker build -t seu_user/copo-do-mundo .`
+
 Define a tag da imagem:
 `docker tag copo-do-mundo seu_user/copo-do-mundo:latest`
 

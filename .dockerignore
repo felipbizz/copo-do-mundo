@@ -1,13 +1,30 @@
-.git
-.gitignore
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
+# Arquivos Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ambiente virtual
 venv/
-.venv/
-.env
+env/
+
+# Logs
 *.log
-.DS_Store 
+
+# Arquivos de configuração
+.env
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Arquivos de cache
+.cache/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos de build
+build/
+dist/
+*.egg-info/
