@@ -242,3 +242,81 @@ class VoteManager:
 
         except Exception as e:
             raise VoteManagerError(f"Error clearing votes: {str(e)}") from e
+
+    def get_voted_drinks_for_juror(
+        self, data: pd.DataFrame, name: str
+    ) -> list[tuple[str, str, str]]:
+        """Get list of drinks a juror has already voted on.
+
+        Args:
+            data (pd.DataFrame): Current voting data.
+            name (str): Name of the juror.
+
+        Returns:
+            List[Tuple[str, str, str]]: List of tuples (categoria, participant, code) for drinks
+                                        the juror has voted on. Returns empty list if no votes found
+                                        or if data is empty.
+        """
+        voted_drinks: list[tuple[str, str, str]] = []
+
+        if data.empty or "Nome" not in data.columns:
+            return voted_drinks
+
+        # Get all votes for this juror
+        juror_votes = data[data["Nome"] == name]
+
+        if juror_votes.empty:
+            return voted_drinks
+
+        # Get unique combinations of categoria and participant
+        unique_votes = (
+            juror_votes[["Categoria", "Participante"]].drop_duplicates().values.tolist()
+        )
+
+        # Convert to list of tuples (categoria, participant)
+        # Note: code will be resolved in the UI layer using Anonymizer
+        for categoria, participant in unique_votes:
+            voted_drinks.append((str(categoria), str(participant), ""))
+
+        if voted_drinks:
+            logger.info(f"Found {len(voted_drinks)} voted drinks for {name}")
+        return voted_drinks
+
+    def get_available_drinks_for_juror(
+        self, data: pd.DataFrame, name: str, all_codes: dict[str, tuple[int, str]]
+    ) -> list[str]:
+        """Get list of drink codes that a juror hasn't voted on yet.
+
+        Args:
+            data (pd.DataFrame): Current voting data.
+            name (str): Name of the juror.
+            all_codes (Dict[str, Tuple[int, str]]): Dictionary mapping codes to (participant, category) tuples.
+
+        Returns:
+            List[str]: List of codes for drinks the juror hasn't voted on yet.
+        """
+        available_codes: list[str] = []
+
+        if not all_codes:
+            return available_codes
+
+        # Get all votes for this juror
+        if data.empty or "Nome" not in data.columns:
+            # No votes yet, all drinks are available
+            return list(all_codes.keys())
+
+        juror_votes = data[data["Nome"] == name]
+
+        # Check each code to see if juror has voted on it
+        for code, (participant, categoria) in all_codes.items():
+            # Check if this juror has voted on this participant-category combination
+            has_voted = not juror_votes[
+                (juror_votes["Categoria"] == categoria)
+                & (juror_votes["Participante"] == str(participant))
+            ].empty
+
+            if not has_voted:
+                available_codes.append(code)
+
+        logger.info(f"Found {len(available_codes)} available drinks for {name} out of {len(all_codes)} total")
+        return available_codes
