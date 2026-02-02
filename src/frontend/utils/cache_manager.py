@@ -1,9 +1,12 @@
 import hashlib
+import logging
 from datetime import datetime, timedelta
 from typing import Any
 
 import pandas as pd
 import streamlit as st
+
+logger = logging.getLogger(__name__)
 
 
 class CacheManager:
@@ -164,5 +167,57 @@ class CacheManager:
 
     @staticmethod
     def invalidate_results_cache() -> None:
-        """Invalidate the results cache by clearing all cached data."""
-        CacheManager.clear_cache()
+        """Invalidate only the results cache, keeping other cached data."""
+        if "cached_data" not in st.session_state:
+            return
+
+        # Remove only results-related cache entries
+        keys_to_remove = [
+            key for key in st.session_state.cached_data.keys() if key.startswith("results_")
+        ]
+        for key in keys_to_remove:
+            del st.session_state.cached_data[key]
+
+        if keys_to_remove:
+            logger.info(f"Invalidated {len(keys_to_remove)} results cache entries")
+
+    @staticmethod
+    def invalidate_category_cache(categoria: str) -> None:
+        """Invalidate cache entries for a specific category.
+
+        Args:
+            categoria: The category to invalidate cache for.
+        """
+        if "cached_data" not in st.session_state:
+            return
+
+        # Remove cache entries related to this category
+        keys_to_remove = [
+            key
+            for key in st.session_state.cached_data.keys()
+            if f"_cat_{categoria}_" in key or key.endswith(f"_{categoria}")
+        ]
+        for key in keys_to_remove:
+            del st.session_state.cached_data[key]
+
+    @staticmethod
+    def invalidate_participant_cache(participant: str | int) -> None:
+        """Invalidate cache entries for a specific participant.
+
+        Args:
+            participant: The participant ID to invalidate cache for.
+        """
+        if "cached_data" not in st.session_state:
+            return
+
+        participant_str = str(participant)
+        # Remove cache entries related to this participant
+        keys_to_remove = [
+            key
+            for key in st.session_state.cached_data.keys()
+            if f"_participant_{participant_str}_" in key
+            or key.endswith(f"_{participant_str}")
+            or key == f"participant_name_{participant_str}"
+        ]
+        for key in keys_to_remove:
+            del st.session_state.cached_data[key]

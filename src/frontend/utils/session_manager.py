@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -6,6 +7,8 @@ import streamlit as st
 
 from backend.data.data_manager import DataManager
 from config import CONFIG
+
+logger = logging.getLogger(__name__)
 
 
 class SessionManager:
@@ -55,6 +58,10 @@ class SessionManager:
         if "has_valid_juror" not in st.session_state:
             st.session_state.has_valid_juror = False
 
+        # Data refresh tracking
+        if "last_data_load" not in st.session_state:
+            st.session_state.last_data_load = datetime.now()
+
     @staticmethod
     def get(key: str, default: Any = None) -> Any:
         """Get a session state value with a default"""
@@ -83,3 +90,50 @@ class SessionManager:
     def update_last_vote(name: str) -> None:
         """Update the last vote timestamp for a user"""
         st.session_state.last_votes[name] = datetime.now()
+
+    @staticmethod
+    def get_last_data_load() -> datetime:
+        """Get the timestamp of the last data load."""
+        return st.session_state.get("last_data_load", datetime.now())
+
+    @staticmethod
+    def update_last_data_load() -> None:
+        """Update the timestamp of the last data load."""
+        st.session_state.last_data_load = datetime.now()
+
+    @staticmethod
+    def refresh_data_incremental(data_manager: DataManager) -> pd.DataFrame:
+        """Refresh data by loading only new votes since last load.
+
+        Args:
+            data_manager: DataManager instance to use for loading.
+
+        Returns:
+            pd.DataFrame: New votes loaded since last refresh.
+        """
+        last_load = SessionManager.get_last_data_load()
+        try:
+            new_data = data_manager.load_data_since(last_load)
+            if not new_data.empty:
+                # Merge with existing data
+                current_data = SessionManager.get("data", pd.DataFrame())
+                if current_data.empty:
+                    SessionManager.set("data", new_data)
+                else:
+                    # Combine and remove duplicates
+                    combined = pd.concat([current_data, new_data], ignore_index=True)
+                    # Remove duplicates based on all columns except Data (in case of re-votes)
+                    combined = combined.drop_duplicates(
+                        subset=["Nome", "Participante", "Categoria"], keep="last"
+                    )
+                    SessionManager.set("data", combined)
+                SessionManager.update_last_data_load()
+                return new_data
+            return pd.DataFrame()
+        except Exception as e:
+            # If incremental load fails, fall back to full load
+            logger.warning(f"Incremental load failed, falling back to full load: {str(e)}")
+            full_data = data_manager.load_data()
+            SessionManager.set("data", full_data)
+            SessionManager.update_last_data_load()
+            return full_data

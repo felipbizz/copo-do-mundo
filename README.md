@@ -77,33 +77,49 @@ copo-do-mundo/
 
 ### Google Cloud Run
 
-O projeto pode ser facilmente deployado no Google Cloud Run. Para mais detalhes, consulte a [documentação de deploy](docs/deploy.md).
+O projeto pode ser facilmente deployado no Google Cloud Run com suporte para armazenamento externo (BigQuery e Cloud Storage).
 
-```bash
-# Deploy no Google Cloud Run
-gcloud builds submit --config deploy/gcp/cloudbuild.yaml
-```
+#### Deploy Automático via GitHub Actions
+
+1. Configure os secrets no GitHub (Settings → Secrets):
+   - `GCP_PROJECT_ID`: ID do projeto GCP
+   - `GCP_SA_KEY`: Chave JSON da service account
+   - `BIGQUERY_DATASET`: Nome do dataset (padrão: `copo_do_mundo`)
+   - `BIGQUERY_TABLE`: Nome da tabela (padrão: `votes`)
+   - `CLOUD_STORAGE_BUCKET`: Nome do bucket do Cloud Storage
+   - `CLOUD_RUN_SERVICE_ACCOUNT`: Email da service account
+   - `ADMIN_PASSWORD`: Senha do administrador
+
+2. Faça push para a branch `main` ou `master` - o deploy será automático
+
+#### Deploy Manual
+
+1. Configure a infraestrutura GCP:
+   ```bash
+   export GCP_PROJECT_ID=seu-projeto-id
+   ./infra/gcp-setup.sh
+   ```
+
+2. Migre dados existentes (opcional):
+   ```bash
+   python scripts/migrate_data.py
+   ```
+
+3. Deploy no Cloud Run:
+   ```bash
+   gcloud run deploy copo-do-mundo \
+     --image gcr.io/SEU_PROJECT_ID/copo-do-mundo:latest \
+     --platform managed \
+     --region us-central1 \
+     --set-env-vars "STORAGE_BACKEND=gcp,GCP_PROJECT_ID=SEU_PROJECT_ID,..."
+   ```
+
+Para mais detalhes, consulte a [documentação de deploy](docs/deployment.md) e [guia de migração](docs/migration.md).
 
 ## 📚 Documentação
 
-Para mais detalhes, consulte a [documentação completa](docs/README.md).
-
-## Tutorial deploy:
-
-Suba a sua imagem docker no dockerhub com os comandos abaixo:
-
-Faz login na sua conta:
-`docker login`
-
-Define a tag da imagem:
-`docker tag copo-do-mundo seu_user/copo-do-mundo:latest`
-
-Sobe a imagem pro repositório:
-`docker push seu_user/copo-do-mundo:latest`
-
-No google cloud shell, rode o comando: 
-
-`gcloud run deploy copo-do-mundo --image docker.io/seu_user/copo-do-mundo:latest --port 8501`
+- [Guia de Deploy](docs/deployment.md) - Como fazer deploy no Cloud Run
+- [Guia de Migração](docs/migration.md) - Como migrar dados para GCP
 
 ## 🤝 Contribuindo
 

@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 
@@ -14,6 +15,8 @@ from frontend.utils.anonymizer import Anonymizer
 from frontend.utils.cache_manager import CacheManager
 from frontend.utils.session_manager import SessionManager
 from frontend.utils.ui_utils import UIUtils
+
+logger = logging.getLogger(__name__)
 
 
 class VotingComponent:
@@ -98,12 +101,19 @@ class VotingComponent:
         """Handle drink selection and form display."""
         with st.container():
             st.subheader("Selecione o Drink")
+            
+            # Show progress indicator
+            self._show_voting_progress(name)
+            
+            # Show voted drinks
+            self._show_voted_drinks(name)
+            
             self._show_draft_votes(name)
 
-            # Get all available codes
-            available_codes = self._get_available_codes()
+            # Get available codes (filtered to exclude already-voted drinks)
+            available_codes = self._get_available_codes(name)
             if not available_codes:
-                st.warning("Nenhum drink disponível para votação.")
+                st.info("✅ Você já votou em todos os drinks disponíveis!")
                 return
 
             # Create a mapping of display names to codes
@@ -121,10 +131,94 @@ class VotingComponent:
                 selected_code = code_options[selected_name]
                 self._render_voting_form(name, selected_code)
 
-    def _get_available_codes(self) -> list:
-        """Get list of available drink codes"""
-        # Return all codes, regardless of photo availability
-        return Anonymizer.get_all_codes()
+    def _get_available_codes(self, name: str) -> list:
+        """Get list of available drink codes that the juror hasn't voted on yet.
+        
+        Args:
+            name (str): Name of the juror to filter drinks for.
+            
+        Returns:
+            List[str]: List of drink codes available for voting.
+        """
+        # Get all codes from anonymizer
+        all_codes = Anonymizer.get_all_codes()
+        if not all_codes:
+            return []
+        
+        # Get voting data
+        data = SessionManager.get("data", pd.DataFrame())
+        
+        # Filter to only show drinks not yet voted on by this juror
+        available_codes = self.vote_manager.get_available_drinks_for_juror(
+            data, name, all_codes
+        )
+        
+        return available_codes
+
+    def _show_voting_progress(self, name: str):
+        """Show progress indicator for voting completion."""
+        data = SessionManager.get("data", pd.DataFrame())
+        all_codes = Anonymizer.get_all_codes()
+        
+        if not all_codes:
+            return
+        
+        total_drinks = len(all_codes)
+        
+        if data.empty or "Nome" not in data.columns:
+            voted_count = 0
+        else:
+            juror_votes = data[data["Nome"] == name]
+            if juror_votes.empty:
+                voted_count = 0
+            else:
+                # Count unique participant-category combinations
+                voted_count = len(juror_votes[["Categoria", "Participante"]].drop_duplicates())
+        
+        # Show progress bar
+        progress = voted_count / total_drinks if total_drinks > 0 else 0
+        st.progress(progress, text=f"Progresso: {voted_count} de {total_drinks} drinks votados")
+        
+    def _show_voted_drinks(self, name: str):
+        """Display drinks the user has already voted on."""
+        data = SessionManager.get("data", pd.DataFrame())
+        
+        if data.empty or "Nome" not in data.columns:
+            return
+        
+        voted_drinks = self.vote_manager.get_voted_drinks_for_juror(data, name)
+        
+        if not voted_drinks:
+            return
+        
+        with st.expander("✅ Drinks Já Votados", expanded=False):
+            st.markdown("Você já votou nos seguintes drinks:")
+            
+            # Group by category for better organization
+            drinks_by_category = {}
+            for categoria, participant, _ in voted_drinks:
+                if categoria not in drinks_by_category:
+                    drinks_by_category[categoria] = []
+                drinks_by_category[categoria].append(participant)
+            
+            for categoria in sorted(drinks_by_category.keys()):
+                st.markdown(f"**{categoria}:**")
+                for participant in sorted(drinks_by_category[categoria], key=lambda x: int(x) if x.isdigit() else 0):
+                    # Get the code for this participant-category combination
+                    try:
+                        participant_int = int(participant) if participant.isdigit() else None
+                        if participant_int is not None:
+                            code = Anonymizer.get_code_from_participant(participant_int, categoria)
+                            if code:
+                                drink_name = Anonymizer.get_drink_name(code)
+                                st.markdown(f"  ✓ {drink_name} (Participante {participant})")
+                            else:
+                                st.markdown(f"  ✓ Participante {participant}")
+                        else:
+                            st.markdown(f"  ✓ Participante {participant}")
+                    except (ValueError, TypeError):
+                        st.markdown(f"  ✓ Participante {participant}")
+                st.markdown("")  # Add spacing between categories
 
     def _show_draft_votes(self, name: str):
         """Display saved draft votes."""
@@ -317,14 +411,56 @@ class VotingComponent:
         self._save_vote(name, code, originalidade, aparencia, sabor)
 
     def _validate_vote(self, name: str, code: str) -> bool:
-        """Validate vote data."""
-        if not code:
-            self.ui.show_error_message("Código do drink inválido")
+        """Validate vote data with comprehensive checks.
+        
+        Args:
+            name (str): Name of the juror.
+            code (str): Drink code to validate.
+            
+        Returns:
+            bool: True if vote is valid, False otherwise.
+        """
+        # Check if code is provided
+        if not code or not code.strip():
+            self.ui.show_error_message("❌ Erro: Código do drink não fornecido.")
             return False
+        
+        # Check if code exists in anonymizer
+        participant_info = Anonymizer.get_participant_from_code(code)
+        if participant_info is None:
+            self.ui.show_error_message(
+                f"❌ Erro: Código do drink '{code}' não encontrado no sistema. "
+                "O drink pode ter sido removido ou o código está inválido."
+            )
+            return False
+        
+        participant, categoria = participant_info
+        
+        # Check if name is provided
+        if not name or not name.strip():
+            self.ui.show_error_message("❌ Erro: Nome do jurado não fornecido.")
+            return False
+        
+        # Final duplicate check (defense in depth)
+        data = SessionManager.get("data", pd.DataFrame())
+        if not data.empty and self.vote_manager.check_duplicate_vote(
+            data, name, categoria, str(participant)
+        ):
+            drink_name = Anonymizer.get_drink_name(code)
+            self.ui.show_error_message(
+                f"❌ Erro: Você já votou neste drink: **{drink_name}** "
+                f"(Categoria: {categoria}, Participante: {participant}). "
+                "Não é possível votar duas vezes no mesmo drink."
+            )
+            return False
+        
         return True
 
     def _save_vote(self, name: str, code: str, originalidade: int, aparencia: int, sabor: int):
-        """Save the vote and handle success/failure."""
+        """Save the vote and handle success/failure.
+
+        Uses efficient append operations instead of full dataset save.
+        """
         participant, categoria = Anonymizer.get_participant_from_code(code)
         data = SessionManager.get("data")
 
@@ -347,17 +483,29 @@ class VotingComponent:
             self._handle_duplicate_vote(name, categoria, participant)
             return
 
-        new_vote = self.vote_manager.create_vote(
-            name, categoria, str(participant), originalidade, aparencia, sabor
-        )
-        SessionManager.set("data", pd.concat([data, new_vote], ignore_index=True))
+        # Use append_vote for efficient single vote insertion
+        try:
+            if self.vote_manager.append_vote(
+                name=name,
+                categoria=categoria,
+                participant=str(participant),
+                originalidade=originalidade,
+                aparencia=aparencia,
+                sabor=sabor,
+            ):
+                # Update session state with new vote
+                new_vote = self.vote_manager.create_vote(
+                    name, categoria, str(participant), originalidade, aparencia, sabor
+                )
+                SessionManager.set("data", pd.concat([data, new_vote], ignore_index=True))
 
-        if self.data_manager.save_data(SessionManager.get("data")):
-            self._handle_successful_vote(name)
-        else:
-            self.ui.show_error_message(UI_MESSAGES["ERROR_SAVE_VOTE"])
-
-        CacheManager.invalidate_results_cache()
+                self._handle_successful_vote(name)
+                CacheManager.invalidate_results_cache()
+            else:
+                self.ui.show_error_message(UI_MESSAGES["ERROR_SAVE_VOTE"])
+        except Exception as e:
+            logger.error(f"Error saving vote: {str(e)}")
+            self.ui.show_error_message(f"Erro ao salvar voto: {str(e)}")
 
     def _handle_successful_vote(self, name: str):
         """Handle successful vote submission."""
@@ -441,11 +589,10 @@ class VotingComponent:
             code (str): The drink code to display the image for.
         """
         participant, categoria = Anonymizer.get_participant_from_code(code)
-        image_path = os.path.join(
-            CONFIG["IMAGES_DIR"], f"participant_{participant}_{categoria.lower()}.jpg"
-        )
+        # Use relative path for storage abstraction
+        image_path = f"participant_{participant}_{categoria.lower()}.jpg"
 
-        if os.path.exists(image_path):
+        if self.image_manager.image_exists(image_path):
             image = self.image_manager.load_and_resize_image(image_path, width=300)
             self.ui.display_image(image)
         else:
@@ -453,13 +600,31 @@ class VotingComponent:
 
     def _render_voting_form(self, name: str, code: str):
         """Render the voting form for a selected drink."""
-        participant, categoria = Anonymizer.get_participant_from_code(code)
+        # Validate code exists
+        participant_info = Anonymizer.get_participant_from_code(code)
+        if participant_info is None:
+            self.ui.show_error_message(
+                f"❌ Erro: Código do drink '{code}' não encontrado. "
+                "Por favor, selecione um drink válido da lista."
+            )
+            return
+        
+        participant, categoria = participant_info
 
-        # Check for duplicate vote before showing the form
-        if self.vote_manager.check_duplicate_vote(
-            SessionManager.get("data", pd.DataFrame()), name, categoria, str(participant)
+        # Proactive duplicate check before showing the form
+        data = SessionManager.get("data", pd.DataFrame())
+        if not data.empty and self.vote_manager.check_duplicate_vote(
+            data, name, categoria, str(participant)
         ):
-            self._handle_duplicate_vote(name, categoria, participant)
+            drink_name = Anonymizer.get_drink_name(code)
+            self.ui.show_warning_message(
+                f"⚠️ Você já votou neste drink: **{drink_name}** "
+                f"(Categoria: {categoria}, Participante: {participant})"
+            )
+            st.info(
+                "💡 Dica: Este drink não deveria aparecer na lista de drinks disponíveis. "
+                "Se você precisa alterar seu voto, entre em contato com o administrador."
+            )
             return
 
         # Create the voting form
