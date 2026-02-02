@@ -2,11 +2,15 @@
 
 import logging
 import os
+from datetime import datetime
 from typing import Any
 
 import pandas as pd
 from google.cloud import bigquery
 from google.auth.exceptions import DefaultCredentialsError
+
+from backend.utils.retry import retry_with_backoff
+from backend.utils.validators import validate_single_vote, validate_vote_data
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +84,7 @@ class BigQueryVoteStorage:
             logger.error(f"Error ensuring table exists: {str(e)}")
             raise
 
+    @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def load_data(self) -> pd.DataFrame:
         """Load voting data from BigQuery.
 
@@ -98,11 +103,45 @@ class BigQueryVoteStorage:
             logger.error(f"Error loading data from BigQuery: {str(e)}")
             raise
 
+    @retry_with_backoff(max_retries=3, initial_delay=1.0)
+    def load_data_since(self, since_timestamp: datetime) -> pd.DataFrame:
+        """Load voting data from BigQuery since a specific timestamp.
+
+        This is more efficient than loading all data when you only need recent votes.
+
+        Args:
+            since_timestamp: Only load votes after this timestamp.
+
+        Returns:
+            pd.DataFrame: The loaded voting data.
+        """
+        try:
+            # Format timestamp for BigQuery
+            timestamp_str = since_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            query = (
+                f"SELECT * FROM `{self.table_ref}` "
+                f"WHERE Data > TIMESTAMP('{timestamp_str}') "
+                f"ORDER BY Data DESC"
+            )
+            df = self.client.query(query).to_dataframe()
+            # Ensure Data column is datetime
+            if "Data" in df.columns and len(df) > 0:
+                df["Data"] = pd.to_datetime(df["Data"])
+            logger.info(
+                f"Successfully loaded {len(df)} votes from BigQuery since {since_timestamp}"
+            )
+            return df
+        except Exception as e:
+            logger.error(f"Error loading incremental data from BigQuery: {str(e)}")
+            raise
+
+    @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def save_data(self, data: pd.DataFrame) -> bool:
         """Save voting data to BigQuery.
 
         This method replaces all data in the table. For append operations,
-        use append_data instead.
+        use append_data instead. This is typically used for admin operations
+        like clearing all votes.
 
         Args:
             data: The voting data to save.
@@ -111,6 +150,9 @@ class BigQueryVoteStorage:
             bool: True if save was successful.
         """
         try:
+            # Validate data before saving
+            validate_vote_data(data)
+
             if data.empty:
                 # Clear table by deleting all rows
                 query = f"DELETE FROM `{self.table_ref}` WHERE TRUE"
@@ -125,8 +167,7 @@ class BigQueryVoteStorage:
                 data_to_upload["Data"] = pd.to_datetime(data_to_upload["Data"])
 
             # Delete existing data and insert new data
-            # For simplicity, we'll delete all and re-insert
-            # In production, you might want to use merge/upsert operations
+            # This is a full replacement operation (admin use case)
             delete_query = f"DELETE FROM `{self.table_ref}` WHERE TRUE"
             self.client.query(delete_query).result()
 
@@ -149,8 +190,124 @@ class BigQueryVoteStorage:
             logger.error(f"Error saving data to BigQuery: {str(e)}")
             raise
 
+    @retry_with_backoff(max_retries=3, initial_delay=0.5)
+    def insert_vote(
+        self,
+        name: str,
+        participant: str,
+        categoria: str,
+        originalidade: int,
+        aparencia: int,
+        sabor: int,
+        data_timestamp: datetime | None = None,
+    ) -> bool:
+        """Insert a single vote using BigQuery streaming insert.
+
+        This is the most efficient method for inserting individual votes.
+        Uses streaming insert API for low latency.
+
+        Args:
+            name: Name of the juror.
+            participant: Participant ID.
+            categoria: Category of the vote.
+            originalidade: Originality score (0-10).
+            aparencia: Appearance score (0-10).
+            sabor: Taste score (0-10).
+            data_timestamp: Timestamp for the vote. If None, uses current time.
+
+        Returns:
+            bool: True if insert was successful.
+        """
+        try:
+            # Validate vote data before insertion
+            validate_single_vote(
+                name=name,
+                participant=participant,
+                categoria=categoria,
+                originalidade=originalidade,
+                aparencia=aparencia,
+                sabor=sabor,
+            )
+
+            if data_timestamp is None:
+                data_timestamp = datetime.now()
+
+            # Prepare row data matching BigQuery schema
+            row = {
+                "Nome": name,
+                "Participante": str(participant),
+                "Categoria": categoria,
+                "Originalidade": int(originalidade),
+                "Aparencia": int(aparencia),
+                "Sabor": int(sabor),
+                "Data": data_timestamp,
+            }
+
+            # Use streaming insert API for single row
+            errors = self.client.insert_rows_json(self.table_ref, [row])
+            if errors:
+                logger.error(f"Error inserting vote: {errors}")
+                raise ValueError(f"Failed to insert vote: {errors}")
+
+            logger.info(f"Successfully inserted vote for {name} - {categoria} - {participant}")
+            return True
+        except Exception as e:
+            logger.error(f"Error inserting vote to BigQuery: {str(e)}")
+            raise
+
+    @retry_with_backoff(max_retries=3, initial_delay=1.0)
+    def batch_insert_votes(self, votes: list[dict]) -> bool:
+        """Insert multiple votes using BigQuery streaming insert.
+
+        Args:
+            votes: List of vote dictionaries, each containing:
+                - Nome: str
+                - Participante: str
+                - Categoria: str
+                - Originalidade: int
+                - Aparencia: int
+                - Sabor: int
+                - Data: datetime
+
+        Returns:
+            bool: True if all inserts were successful.
+        """
+        try:
+            if not votes:
+                return True
+
+            # Prepare rows for BigQuery
+            rows = []
+            for vote in votes:
+                row = {
+                    "Nome": str(vote["Nome"]),
+                    "Participante": str(vote["Participante"]),
+                    "Categoria": str(vote["Categoria"]),
+                    "Originalidade": int(vote["Originalidade"]),
+                    "Aparencia": int(vote["Aparencia"]),
+                    "Sabor": int(vote["Sabor"]),
+                    "Data": vote.get("Data", datetime.now()),
+                }
+                rows.append(row)
+
+            # Use streaming insert API for batch
+            errors = self.client.insert_rows_json(self.table_ref, rows)
+            if errors:
+                logger.error(f"Error inserting votes: {errors}")
+                raise ValueError(f"Failed to insert votes: {errors}")
+
+            logger.info(f"Successfully inserted {len(votes)} votes to BigQuery")
+            return True
+        except Exception as e:
+            logger.error(f"Error batch inserting votes to BigQuery: {str(e)}")
+            raise
+
+    @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def append_data(self, data: pd.DataFrame) -> bool:
         """Append new votes to BigQuery table.
+
+        For single or small batches, consider using insert_vote() or batch_insert_votes()
+        for better performance. This method is better for large batches.
 
         Args:
             data: The voting data to append.
@@ -159,15 +316,24 @@ class BigQueryVoteStorage:
             bool: True if append was successful.
         """
         try:
+            # Validate data before appending
+            validate_vote_data(data)
+
             if data.empty:
                 return True
 
+            # For small batches, use streaming insert for better performance
+            if len(data) <= 100:
+                votes = data.to_dict("records")
+                return self.batch_insert_votes(votes)
+
+            # For larger batches, use load job
             # Prepare data for BigQuery
             data_to_upload = data.copy()
             if "Data" in data_to_upload.columns:
                 data_to_upload["Data"] = pd.to_datetime(data_to_upload["Data"])
 
-            # Use streaming insert for better performance
+            # Use load job for larger datasets
             job_config = bigquery.LoadJobConfig(
                 write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
                 source_format=bigquery.SourceFormat.CSV,

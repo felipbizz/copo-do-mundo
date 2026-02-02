@@ -8,6 +8,7 @@ from io import BytesIO
 import pandas as pd
 from PIL import Image
 
+from backend.utils.validators import validate_vote_data
 from config import CONFIG
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,9 @@ class LocalVoteStorage:
     def save_data(self, data: pd.DataFrame) -> bool:
         """Save voting data to CSV file.
 
+        This method replaces all data in the file. For append operations,
+        use append_data instead.
+
         Args:
             data: The voting data to save.
 
@@ -74,11 +78,47 @@ class LocalVoteStorage:
             bool: True if save was successful.
         """
         try:
+            # Validate data before saving
+            validate_vote_data(data)
+
             data.to_csv(self.data_file, index=False)
             logger.info(f"Successfully saved {len(data)} votes to {self.data_file}")
             return True
         except Exception as e:
             logger.error(f"Error saving data: {str(e)}")
+            raise
+
+    def append_data(self, data: pd.DataFrame) -> bool:
+        """Append voting data to CSV file.
+
+        Args:
+            data: The voting data to append.
+
+        Returns:
+            bool: True if append was successful.
+        """
+        try:
+            # Validate data before appending
+            validate_vote_data(data)
+
+            if data.empty:
+                return True
+
+            # Load existing data
+            existing_data = self.load_data()
+
+            # Append new data
+            if existing_data.empty:
+                updated_data = data
+            else:
+                updated_data = pd.concat([existing_data, data], ignore_index=True)
+
+            # Save combined data
+            updated_data.to_csv(self.data_file, index=False)
+            logger.info(f"Successfully appended {len(data)} votes to {self.data_file}")
+            return True
+        except Exception as e:
+            logger.error(f"Error appending data: {str(e)}")
             raise
 
 

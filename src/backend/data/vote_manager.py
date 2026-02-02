@@ -320,3 +320,54 @@ class VoteManager:
 
         logger.info(f"Found {len(available_codes)} available drinks for {name} out of {len(all_codes)} total")
         return available_codes
+
+    def append_vote(
+        self,
+        name: str,
+        categoria: str,
+        participant: str,
+        originalidade: int,
+        aparencia: int,
+        sabor: int,
+    ) -> bool:
+        """Append a new vote to storage.
+
+        This is the preferred method for adding votes as it's more efficient
+        than loading and saving the entire dataset.
+
+        Args:
+            name (str): Name of the juror.
+            categoria (str): Category being voted on.
+            participant (str): Participant ID being voted for.
+            originalidade (int): Originality score (0-10).
+            aparencia (int): Appearance score (0-10).
+            sabor (int): Taste score (0-10).
+
+        Returns:
+            bool: True if vote was successfully appended.
+
+        Raises:
+            VoteManagerError: If any of the scores are invalid or append fails.
+        """
+        try:
+            # Validate scores
+            for score in [originalidade, aparencia, sabor]:
+                if not 0 <= score <= 10:
+                    raise VoteManagerError(
+                        f"Invalid score: {score}. Scores must be between 0 and 10."
+                    )
+
+            # Use DataManager's append_vote method
+            return self.data_manager.append_vote(
+                name=name,
+                participant=participant,
+                categoria=categoria,
+                originalidade=originalidade,
+                aparencia=aparencia,
+                sabor=sabor,
+            )
+
+        except Exception as e:
+            if isinstance(e, VoteManagerError):
+                raise
+            raise VoteManagerError(f"Error appending vote: {str(e)}") from e

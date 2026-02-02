@@ -9,6 +9,7 @@ from PIL import Image
 from google.cloud import storage
 from google.auth.exceptions import DefaultCredentialsError
 
+from backend.utils.retry import retry_with_backoff
 from config import CONFIG
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ class CloudStorageImageStorage:
             )
             logger.info(f"Created bucket {self.bucket_name}")
 
+    @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def save_image(self, image: Image.Image, image_path: str) -> bool:
         """Save image to Cloud Storage.
 
@@ -101,6 +103,7 @@ class CloudStorageImageStorage:
             logger.error(f"Error saving image to Cloud Storage: {str(e)}")
             return False
 
+    @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def load_image(self, image_path: str) -> Image.Image | None:
         """Load image from Cloud Storage.
 
@@ -126,6 +129,7 @@ class CloudStorageImageStorage:
             logger.error(f"Error loading image from Cloud Storage: {str(e)}")
             return None
 
+    @retry_with_backoff(max_retries=3, initial_delay=1.0)
     def delete_image(self, image_path: str) -> bool:
         """Delete image from Cloud Storage.
 

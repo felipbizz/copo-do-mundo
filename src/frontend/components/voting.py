@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 
@@ -14,6 +15,8 @@ from frontend.utils.anonymizer import Anonymizer
 from frontend.utils.cache_manager import CacheManager
 from frontend.utils.session_manager import SessionManager
 from frontend.utils.ui_utils import UIUtils
+
+logger = logging.getLogger(__name__)
 
 
 class VotingComponent:
@@ -454,7 +457,10 @@ class VotingComponent:
         return True
 
     def _save_vote(self, name: str, code: str, originalidade: int, aparencia: int, sabor: int):
-        """Save the vote and handle success/failure."""
+        """Save the vote and handle success/failure.
+
+        Uses efficient append operations instead of full dataset save.
+        """
         participant, categoria = Anonymizer.get_participant_from_code(code)
         data = SessionManager.get("data")
 
@@ -477,17 +483,29 @@ class VotingComponent:
             self._handle_duplicate_vote(name, categoria, participant)
             return
 
-        new_vote = self.vote_manager.create_vote(
-            name, categoria, str(participant), originalidade, aparencia, sabor
-        )
-        SessionManager.set("data", pd.concat([data, new_vote], ignore_index=True))
+        # Use append_vote for efficient single vote insertion
+        try:
+            if self.vote_manager.append_vote(
+                name=name,
+                categoria=categoria,
+                participant=str(participant),
+                originalidade=originalidade,
+                aparencia=aparencia,
+                sabor=sabor,
+            ):
+                # Update session state with new vote
+                new_vote = self.vote_manager.create_vote(
+                    name, categoria, str(participant), originalidade, aparencia, sabor
+                )
+                SessionManager.set("data", pd.concat([data, new_vote], ignore_index=True))
 
-        if self.data_manager.save_data(SessionManager.get("data")):
-            self._handle_successful_vote(name)
-        else:
-            self.ui.show_error_message(UI_MESSAGES["ERROR_SAVE_VOTE"])
-
-        CacheManager.invalidate_results_cache()
+                self._handle_successful_vote(name)
+                CacheManager.invalidate_results_cache()
+            else:
+                self.ui.show_error_message(UI_MESSAGES["ERROR_SAVE_VOTE"])
+        except Exception as e:
+            logger.error(f"Error saving vote: {str(e)}")
+            self.ui.show_error_message(f"Erro ao salvar voto: {str(e)}")
 
     def _handle_successful_vote(self, name: str):
         """Handle successful vote submission."""
