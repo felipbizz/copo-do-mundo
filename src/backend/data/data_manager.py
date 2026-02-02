@@ -3,9 +3,12 @@ from datetime import datetime
 
 import pandas as pd
 
-from config import CONFIG
-from backend.data.storage.local_storage import LocalVoteStorage
 from backend.data.storage.bigquery_storage import BigQueryVoteStorage
+from backend.data.storage.local_storage import LocalVoteStorage
+from backend.utils.circuit_breaker import QuotaExceededError
+from config import CONFIG
+
+logger = logging.getLogger(__name__)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,24 +37,59 @@ class DataManager:
                 Only used for local storage backend.
         """
         storage_backend = CONFIG.get("STORAGE_BACKEND", "local")
+        self.data_file = data_file
+        self._primary_storage = None
+        self._fallback_storage = LocalVoteStorage(data_file)
+        self._using_fallback = False
 
         if storage_backend == "gcp":
             try:
-                self.storage = BigQueryVoteStorage(
+                self._primary_storage = BigQueryVoteStorage(
                     project_id=CONFIG.get("GCP_PROJECT_ID"),
                     dataset_id=CONFIG.get("BIGQUERY_DATASET"),
                     table_id=CONFIG.get("BIGQUERY_TABLE"),
                 )
+                self.storage = self._primary_storage
                 logger.info("Initialized DataManager with BigQuery storage")
             except Exception as e:
                 logger.warning(
                     f"Failed to initialize BigQuery storage: {str(e)}. "
                     "Falling back to local storage."
                 )
-                self.storage = LocalVoteStorage(data_file)
+                self.storage = self._fallback_storage
+                self._using_fallback = True
         else:
-            self.storage = LocalVoteStorage(data_file)
+            self.storage = self._fallback_storage
+            self._using_fallback = True
             logger.info("Initialized DataManager with local storage")
+
+    def _handle_quota_exceeded(self, operation: str) -> None:
+        """Handle quota exceeded by switching to fallback storage.
+
+        Args:
+            operation: Name of the operation that failed.
+        """
+        if self._using_fallback:
+            # Already using fallback
+            return
+
+        logger.warning(
+            f"Quota exceeded during {operation}. "
+            "Switching to local storage fallback."
+        )
+        self.storage = self._fallback_storage
+        self._using_fallback = True
+
+        # Optionally sync data from primary to fallback if possible
+        try:
+            if self._primary_storage:
+                logger.info("Attempting to sync data from BigQuery to local storage...")
+                data = self._primary_storage.load_data()
+                if not data.empty:
+                    self._fallback_storage.save_data(data)
+                    logger.info("Data synced successfully to local storage")
+        except Exception as e:
+            logger.warning(f"Could not sync data to fallback: {e}")
 
     def load_data(self) -> pd.DataFrame:
         """Load voting data from storage.
@@ -63,6 +101,10 @@ class DataManager:
             DataManagerError: If there's an error loading the data.
         """
         try:
+            return self.storage.load_data()
+        except QuotaExceededError as e:
+            self._handle_quota_exceeded("load_data")
+            logger.info("Retrying load_data with local storage fallback")
             return self.storage.load_data()
         except Exception as e:
             raise DataManagerError(f"Error loading data: {str(e)}") from e
@@ -190,6 +232,26 @@ class DataManager:
                     current_data = self.load_data()
                     updated_data = pd.concat([current_data, vote_df], ignore_index=True)
                     return self.save_data(updated_data)
+        except QuotaExceededError as e:
+            self._handle_quota_exceeded("append_vote")
+            logger.info("Retrying append_vote with local storage fallback")
+            # Retry with fallback storage
+            from datetime import datetime
+
+            vote_df = pd.DataFrame(
+                [
+                    {
+                        "Nome": name,
+                        "Participante": participant,
+                        "Categoria": categoria,
+                        "Originalidade": originalidade,
+                        "Aparencia": aparencia,
+                        "Sabor": sabor,
+                        "Data": datetime.now(),
+                    }
+                ]
+            )
+            return self.storage.append_data(vote_df)
         except Exception as e:
             raise DataManagerError(f"Error appending vote: {str(e)}") from e
 
@@ -213,5 +275,12 @@ class DataManager:
                 current_data = self.load_data()
                 updated_data = pd.concat([current_data, data], ignore_index=True)
                 return self.save_data(updated_data)
+        except QuotaExceededError as e:
+            self._handle_quota_exceeded("append_data")
+            logger.info("Retrying append_data with local storage fallback")
+            # Retry with fallback storage
+            current_data = self.load_data()
+            updated_data = pd.concat([current_data, data], ignore_index=True)
+            return self.save_data(updated_data)
         except Exception as e:
             raise DataManagerError(f"Error appending data: {str(e)}") from e

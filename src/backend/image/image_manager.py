@@ -3,9 +3,10 @@ import logging
 
 from PIL import Image
 
-from config import CONFIG, UI_MESSAGES
-from backend.data.storage.local_storage import LocalImageStorage
 from backend.data.storage.cloud_storage import CloudStorageImageStorage
+from backend.data.storage.local_storage import LocalImageStorage
+from backend.utils.circuit_breaker import QuotaExceededError
+from config import CONFIG, UI_MESSAGES
 
 logger = logging.getLogger(__name__)
 
@@ -16,23 +17,46 @@ class ImageManager:
     def __init__(self):
         """Initialize ImageManager with appropriate storage backend."""
         storage_backend = CONFIG.get("STORAGE_BACKEND", "local")
+        self._primary_storage = None
+        self._fallback_storage = LocalImageStorage()
+        self._using_fallback = False
 
         if storage_backend == "gcp":
             try:
-                self.storage = CloudStorageImageStorage(
+                self._primary_storage = CloudStorageImageStorage(
                     project_id=CONFIG.get("GCP_PROJECT_ID"),
                     bucket_name=CONFIG.get("CLOUD_STORAGE_BUCKET"),
                 )
+                self.storage = self._primary_storage
                 logger.info("Initialized ImageManager with Cloud Storage")
             except Exception as e:
                 logger.warning(
                     f"Failed to initialize Cloud Storage: {str(e)}. "
                     "Falling back to local storage."
                 )
-                self.storage = LocalImageStorage()
+                self.storage = self._fallback_storage
+                self._using_fallback = True
         else:
-            self.storage = LocalImageStorage()
+            self.storage = self._fallback_storage
+            self._using_fallback = True
             logger.info("Initialized ImageManager with local storage")
+
+    def _handle_quota_exceeded(self, operation: str) -> None:
+        """Handle quota exceeded by switching to fallback storage.
+
+        Args:
+            operation: Name of the operation that failed.
+        """
+        if self._using_fallback:
+            # Already using fallback
+            return
+
+        logger.warning(
+            f"Quota exceeded during {operation}. "
+            "Switching to local storage fallback for images."
+        )
+        self.storage = self._fallback_storage
+        self._using_fallback = True
 
     def load_and_resize_image(self, image_path: str, width: int | None = None) -> Image.Image | None:
         """Load and resize image from storage.
@@ -45,6 +69,16 @@ class ImageManager:
             PIL Image object or None if not found.
         """
         try:
+            image = self.storage.load_image(image_path)
+            if image and width:
+                ratio = width / image.size[0]
+                height = int(image.size[1] * ratio)
+                image = image.resize((width, height), Image.Resampling.LANCZOS)
+            return image
+        except QuotaExceededError as e:
+            self._handle_quota_exceeded("load_image")
+            logger.info("Retrying load_image with local storage fallback")
+            # Retry with fallback storage
             image = self.storage.load_image(image_path)
             if image and width:
                 ratio = width / image.size[0]
@@ -108,6 +142,14 @@ class ImageManager:
             else:
                 logger.error("Falha ao otimizar a imagem")
                 return False
+        except QuotaExceededError as e:
+            self._handle_quota_exceeded("save_image")
+            logger.info("Retrying save_image with local storage fallback")
+            # Retry with fallback storage
+            optimized_image = ImageManager.optimize_image(image)
+            if optimized_image:
+                return self.storage.save_image(optimized_image, image_path)
+            return False
         except Exception as e:
             logger.error(UI_MESSAGES["ERROR_PHOTO"].format(str(e)))
             return False
