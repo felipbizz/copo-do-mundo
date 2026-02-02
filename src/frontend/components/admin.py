@@ -226,24 +226,25 @@ class AdminComponent:
 
             # Current photo section
             st.markdown("### 📸 Foto Atual")
-            image_path = os.path.join(
-                CONFIG["IMAGES_DIR"], f"participant_{participant}_{category.lower()}.jpg"
-            )
-            if os.path.exists(image_path):
+            # Use relative path for storage abstraction
+            image_path = f"participant_{participant}_{category.lower()}.jpg"
+            if self.image_manager.image_exists(image_path):
                 image = self.image_manager.load_and_resize_image(image_path, width=300)
                 self.ui.display_image(image)
 
-            # Add remove button
-            if st.button("🗑️ Remover Foto", key=f"remove_{participant}_{category}"):
-                with st.spinner("Removendo foto..."):
-                    try:
-                        os.remove(image_path)
-                        self.ui.show_success_message("Foto removida com sucesso!")
-                        time.sleep(0.5)
-                        CacheManager.invalidate_results_cache()
-                        st.rerun()
-                    except Exception as e:
-                        self.ui.show_error_message(f"Erro ao remover foto: {str(e)}")
+                # Add remove button
+                if st.button("🗑️ Remover Foto", key=f"remove_{participant}_{category}"):
+                    with st.spinner("Removendo foto..."):
+                        try:
+                            if self.image_manager.delete_image(image_path):
+                                self.ui.show_success_message("Foto removida com sucesso!")
+                                time.sleep(0.5)
+                                CacheManager.invalidate_results_cache()
+                                st.rerun()
+                            else:
+                                self.ui.show_error_message("Erro ao remover foto")
+                        except Exception as e:
+                            self.ui.show_error_message(f"Erro ao remover foto: {str(e)}")
             else:
                 self.ui.show_info_message(
                     "Nenhuma foto disponível para este participante nesta categoria"
@@ -276,15 +277,15 @@ class AdminComponent:
                     if st.button("💾 Salvar Foto", key=f"save_upload_{participant}_{category}"):
                         with st.spinner("Processando foto..."):
                             try:
-                                # Optimize and save image
-                                optimized_image = self.image_manager.optimize_image(image)
-                                optimized_image.save(
-                                    image_path, quality=CONFIG["IMAGE_QUALITY"], optimize=True
-                                )
-                                self.ui.show_success_message("Foto salva com sucesso!")
-                                time.sleep(0.5)
-                                CacheManager.invalidate_results_cache()
-                                st.rerun()
+                                # Use ImageManager to save (handles optimization and storage)
+                                image_path = f"participant_{participant}_{category.lower()}.jpg"
+                                if self.image_manager.save_image(image, image_path):
+                                    self.ui.show_success_message("Foto salva com sucesso!")
+                                    time.sleep(0.5)
+                                    CacheManager.invalidate_results_cache()
+                                    st.rerun()
+                                else:
+                                    self.ui.show_error_message("Erro ao salvar foto")
                             except Exception as e:
                                 self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}")
 
@@ -308,15 +309,15 @@ class AdminComponent:
                                 if not isinstance(camera_image, Image.Image):
                                     camera_image = Image.open(camera_image)
 
-                                # Optimize and save image
-                                optimized_image = self.image_manager.optimize_image(camera_image)
-                                optimized_image.save(
-                                    image_path, quality=CONFIG["IMAGE_QUALITY"], optimize=True
-                                )
-                                self.ui.show_success_message("Foto salva com sucesso!")
-                                time.sleep(0.5)
-                                CacheManager.invalidate_results_cache()
-                                st.rerun()
+                                # Use ImageManager to save (handles optimization and storage)
+                                image_path = f"participant_{participant}_{category.lower()}.jpg"
+                                if self.image_manager.save_image(camera_image, image_path):
+                                    self.ui.show_success_message("Foto salva com sucesso!")
+                                    time.sleep(0.5)
+                                    CacheManager.invalidate_results_cache()
+                                    st.rerun()
+                                else:
+                                    self.ui.show_error_message("Erro ao salvar foto")
                             except Exception as e:
                                 self.ui.show_error_message(f"Erro ao salvar foto: {str(e)}")
 

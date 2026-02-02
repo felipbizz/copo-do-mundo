@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 
 from config import CONFIG
+from backend.data.data_manager import DataManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +23,14 @@ class VoteManager:
     This class handles all voting-related operations including creating new votes,
     checking for duplicates, removing duplicates, and tracking voting progress.
     """
+
+    def __init__(self, data_manager: DataManager | None = None):
+        """Initialize VoteManager.
+
+        Args:
+            data_manager: DataManager instance. If None, creates a new one.
+        """
+        self.data_manager = data_manager or DataManager()
 
     def create_vote(
         self,
@@ -171,7 +180,7 @@ class VoteManager:
         """Clear all votes from the system.
 
         This method handles the entire process of clearing votes:
-        1. Clears the data file
+        1. Clears the data storage
         2. Updates the session state
         3. Invalidates the cache
 
@@ -182,7 +191,7 @@ class VoteManager:
             # Get current data
             data = self.load_data()
 
-            # Clear votes (this will save to file)
+            # Clear votes (this will save to storage)
             empty_df = self.clear_all_votes(data)
 
             logger.info("All votes have been cleared and system state updated")
@@ -191,7 +200,7 @@ class VoteManager:
             raise VoteManagerError(f"Error clearing votes: {str(e)}") from e
 
     def load_data(self) -> pd.DataFrame:
-        """Load voting data from the data file.
+        """Load voting data from storage.
 
         Returns:
             pd.DataFrame: Loaded voting data.
@@ -200,8 +209,8 @@ class VoteManager:
             VoteManagerError: If there's an error loading the data.
         """
         try:
-            # Load data from file
-            data = pd.read_csv(CONFIG["DATA_FILE"])
+            # Load data from storage via DataManager
+            data = self.data_manager.load_data()
 
             logger.info("Loaded voting data")
             return data
@@ -225,8 +234,8 @@ class VoteManager:
             # Create a new empty DataFrame with the same columns
             empty_df = pd.DataFrame(columns=data.columns)
 
-            # Save the empty DataFrame directly to the data file
-            empty_df.to_csv(CONFIG["DATA_FILE"], index=False)
+            # Save the empty DataFrame to storage
+            self.data_manager.save_data(empty_df)
 
             logger.info("All votes have been cleared and saved")
             return empty_df

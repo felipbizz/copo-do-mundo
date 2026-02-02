@@ -441,11 +441,10 @@ class VotingComponent:
             code (str): The drink code to display the image for.
         """
         participant, categoria = Anonymizer.get_participant_from_code(code)
-        image_path = os.path.join(
-            CONFIG["IMAGES_DIR"], f"participant_{participant}_{categoria.lower()}.jpg"
-        )
+        # Use relative path for storage abstraction
+        image_path = f"participant_{participant}_{categoria.lower()}.jpg"
 
-        if os.path.exists(image_path):
+        if self.image_manager.image_exists(image_path):
             image = self.image_manager.load_and_resize_image(image_path, width=300)
             self.ui.display_image(image)
         else:

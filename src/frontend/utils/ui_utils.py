@@ -27,7 +27,7 @@ class UIUtils:
     def display_image(image: Image.Image | None, caption: str | None = None) -> None:
         """Display image with optional caption"""
         if image:
-            st.image(image, caption=caption, use_container_width=False)
+            st.image(image, caption=caption)
         else:
             UIUtils.show_info_message("Foto não disponível")
 

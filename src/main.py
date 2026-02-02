@@ -22,8 +22,9 @@ def main():
     # Initialize session state
     SessionManager.initialize_session_state()
 
-    # Create necessary directories
-    os.makedirs(CONFIG["IMAGES_DIR"], exist_ok=True)
+    # Create necessary directories (only for local storage)
+    if CONFIG.get("STORAGE_BACKEND", "local") == "local":
+        os.makedirs(CONFIG["IMAGES_DIR"], exist_ok=True)
 
     # Initialize components
     voting = VotingComponent()

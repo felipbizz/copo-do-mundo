@@ -1,3 +1,5 @@
+import os
+
 CONFIG = {
     "DATA_FILE": "data/votes.csv",
     "IMAGES_DIR": "data/images",
@@ -10,9 +12,16 @@ CONFIG = {
         4: "Participante 4",
     },
     "IMAGE_MAX_SIZE": (800, 800),
-    "ADMIN_PASSWORD": "admin2024",
+    "ADMIN_PASSWORD": os.getenv("ADMIN_PASSWORD", "admin2024"),
     "IMAGE_QUALITY": 85,
     "ALLOWED_IMAGE_TYPES": ["png", "jpg", "jpeg"],
+    # Storage backend configuration
+    "STORAGE_BACKEND": os.getenv("STORAGE_BACKEND", "local"),  # "local" or "gcp"
+    # GCP configuration
+    "GCP_PROJECT_ID": os.getenv("GCP_PROJECT_ID"),
+    "BIGQUERY_DATASET": os.getenv("BIGQUERY_DATASET", "copo_do_mundo"),
+    "BIGQUERY_TABLE": os.getenv("BIGQUERY_TABLE", "votes"),
+    "CLOUD_STORAGE_BUCKET": os.getenv("CLOUD_STORAGE_BUCKET"),
 }
 
 # Column names for consistency

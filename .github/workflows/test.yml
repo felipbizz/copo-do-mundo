@@ -1,0 +1,47 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system -e .
+
+      - name: Run linter
+        run: |
+          uv pip install --system ruff
+          ruff check src/
+          ruff format --check src/
+
+      - name: Run tests (if available)
+        run: |
+          # Add tests when available
+          echo "Tests will be added here"
+          # uv pip install --system pytest pytest-cov
+          # pytest tests/ --cov=src --cov-report=xml

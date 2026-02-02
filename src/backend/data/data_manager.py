@@ -1,9 +1,10 @@
 import logging
-from pathlib import Path
 
 import pandas as pd
 
 from config import CONFIG
+from backend.data.storage.local_storage import LocalVoteStorage
+from backend.data.storage.bigquery_storage import BigQueryVoteStorage
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,37 +30,30 @@ class DataManager:
 
         Args:
             data_file (Optional[str]): Path to the data file. If None, uses CONFIG["DATA_FILE"].
+                Only used for local storage backend.
         """
-        self.data_file = Path(data_file or CONFIG["DATA_FILE"])
-        self._ensure_data_file_exists()
+        storage_backend = CONFIG.get("STORAGE_BACKEND", "local")
 
-    def _ensure_data_file_exists(self) -> None:
-        """Ensure the data file exists with the correct structure.
-
-        Raises:
-            DataManagerError: If there's an error creating the data file.
-        """
-        try:
-            if not self.data_file.exists():
-                # Create empty DataFrame with the correct structure
-                df = pd.DataFrame(
-                    columns=[
-                        "Nome",
-                        "Participante",
-                        "Categoria",
-                        "Originalidade",
-                        "Aparencia",
-                        "Sabor",
-                        "Data",
-                    ]
+        if storage_backend == "gcp":
+            try:
+                self.storage = BigQueryVoteStorage(
+                    project_id=CONFIG.get("GCP_PROJECT_ID"),
+                    dataset_id=CONFIG.get("BIGQUERY_DATASET"),
+                    table_id=CONFIG.get("BIGQUERY_TABLE"),
                 )
-                df.to_csv(self.data_file, index=False)
-                logger.info(f"Created new data file at {self.data_file}")
-        except Exception as e:
-            raise DataManagerError(f"Failed to create data file: {str(e)}") from e
+                logger.info("Initialized DataManager with BigQuery storage")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to initialize BigQuery storage: {str(e)}. "
+                    "Falling back to local storage."
+                )
+                self.storage = LocalVoteStorage(data_file)
+        else:
+            self.storage = LocalVoteStorage(data_file)
+            logger.info("Initialized DataManager with local storage")
 
     def load_data(self) -> pd.DataFrame:
-        """Load voting data from CSV file.
+        """Load voting data from storage.
 
         Returns:
             pd.DataFrame: The loaded voting data.
@@ -68,16 +62,12 @@ class DataManager:
             DataManagerError: If there's an error loading the data.
         """
         try:
-            df = pd.read_csv(self.data_file)
-            # Convert Data column to datetime
-            df["Data"] = pd.to_datetime(df["Data"])
-            logger.info(f"Successfully loaded {len(df)} votes from {self.data_file}")
-            return df
+            return self.storage.load_data()
         except Exception as e:
             raise DataManagerError(f"Error loading data: {str(e)}") from e
 
     def save_data(self, data: pd.DataFrame) -> bool:
-        """Save voting data to CSV file.
+        """Save voting data to storage.
 
         Args:
             data (pd.DataFrame): The voting data to save.
@@ -89,8 +79,6 @@ class DataManager:
             DataManagerError: If there's an error saving the data.
         """
         try:
-            data.to_csv(self.data_file, index=False)
-            logger.info(f"Successfully saved {len(data)} votes to {self.data_file}")
-            return True
+            return self.storage.save_data(data)
         except Exception as e:
             raise DataManagerError(f"Error saving data: {str(e)}") from e
