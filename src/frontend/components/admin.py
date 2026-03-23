@@ -54,9 +54,7 @@ class AdminComponent:
     def _render_admin_login(self):
         """Render admin login section in sidebar."""
         st.sidebar.title("Área do Administrador")
-        admin_password = st.sidebar.text_input(
-            "Senha do Administrador", type="password", key="admin_password_input"
-        )
+        admin_password = st.sidebar.text_input("Senha do Administrador", type="password", key="admin_password_input")
 
         if self.validators.validate_admin_password(admin_password):
             st.sidebar.success(UI_MESSAGES["ADMIN_WELCOME"])
@@ -100,9 +98,7 @@ class AdminComponent:
         for i, category in enumerate(current_categories):
             col1, col2 = st.columns([4, 1])
             with col1:
-                new_category = st.text_input(
-                    f"Categoria {i + 1}", value=category, key=f"category_{i}"
-                )
+                new_category = st.text_input(f"Categoria {i + 1}", value=category, key=f"category_{i}")
             with col2:
                 if st.button("Remover", key=f"remove_{i}"):
                     with st.spinner("Atualizando categorias..."):
@@ -257,9 +253,7 @@ class AdminComponent:
                         except Exception as e:
                             self.ui.show_error_message(f"Erro ao remover foto: {str(e)}")
             else:
-                self.ui.show_info_message(
-                    "Nenhuma foto disponível para este participante nesta categoria"
-                )
+                self.ui.show_info_message("Nenhuma foto disponível para este participante nesta categoria")
 
             # New photo section
             st.markdown("### 📤 Nova Foto")
@@ -302,18 +296,14 @@ class AdminComponent:
 
             else:
                 # Camera section
-                camera_image = st.camera_input(
-                    "Tire uma foto", key=f"camera_{participant}_{category}"
-                )
+                camera_image = st.camera_input("Tire uma foto", key=f"camera_{participant}_{category}")
 
                 if camera_image:
                     # Show preview
                     self.ui.display_image(camera_image)
 
                     # Add save button with unique key
-                    if st.button(
-                        "💾 Salvar Foto da Câmera", key=f"save_camera_{participant}_{category}"
-                    ):
+                    if st.button("💾 Salvar Foto da Câmera", key=f"save_camera_{participant}_{category}"):
                         with st.spinner("Processando foto..."):
                             try:
                                 # Convert camera image to PIL Image if needed
@@ -408,9 +398,7 @@ class AdminComponent:
         streaming_limit_gb = limits.get("streaming_gb", 10)
         streaming_usage_bytes = quota_manager.get_usage("bigquery", "streaming", "monthly")
         streaming_usage_gb = streaming_usage_bytes / (1024**3)
-        streaming_percent = (
-            (streaming_usage_gb / streaming_limit_gb * 100) if streaming_limit_gb > 0 else 0
-        )
+        streaming_percent = (streaming_usage_gb / streaming_limit_gb * 100) if streaming_limit_gb > 0 else 0
 
         st.metric("Streaming Inserts", f"{streaming_usage_gb:.2f} GB", f"/ {streaming_limit_gb} GB")
         st.progress(
@@ -420,15 +408,9 @@ class AdminComponent:
 
         # Alerts
         if streaming_percent >= thresholds["emergency"]:
-            st.error(
-                f"⚠️ EMERGENCY: Streaming quota at {streaming_percent:.1f}%! "
-                "Operations will be blocked."
-            )
+            st.error(f"⚠️ EMERGENCY: Streaming quota at {streaming_percent:.1f}%! Operations will be blocked.")
         elif streaming_percent >= thresholds["critical"]:
-            st.warning(
-                f"⚠️ CRITICAL: Streaming quota at {streaming_percent:.1f}%! "
-                "Circuit breaker may open."
-            )
+            st.warning(f"⚠️ CRITICAL: Streaming quota at {streaming_percent:.1f}%! Circuit breaker may open.")
         elif streaming_percent >= thresholds["warning"]:
             st.warning(f"⚠️ WARNING: Streaming quota at {streaming_percent:.1f}%")
 
@@ -500,9 +482,7 @@ class AdminComponent:
         if max_percent >= thresholds["emergency"]:
             st.error(f"⚠️ EMERGENCY: Quota at {max_percent:.1f}%! Operations will be blocked.")
         elif max_percent >= thresholds["critical"]:
-            st.warning(
-                f"⚠️ CRITICAL: Quota at {max_percent:.1f}%! Circuit breaker may open."
-            )
+            st.warning(f"⚠️ CRITICAL: Quota at {max_percent:.1f}%! Circuit breaker may open.")
         elif max_percent >= thresholds["warning"]:
             st.warning(f"⚠️ WARNING: Quota at {max_percent:.1f}%")
 

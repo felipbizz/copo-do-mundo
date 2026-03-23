@@ -42,9 +42,7 @@ class TokenBucket:
             # Refill tokens based on elapsed time
             now = time.time()
             elapsed = now - self.last_refill
-            self.tokens = min(
-                self.capacity, self.tokens + (elapsed * self.refill_rate)
-            )
+            self.tokens = min(self.capacity, self.tokens + (elapsed * self.refill_rate))
             self.last_refill = now
 
             # Check if we have enough tokens
@@ -62,9 +60,7 @@ class TokenBucket:
         with self.lock:
             now = time.time()
             elapsed = now - self.last_refill
-            self.tokens = min(
-                self.capacity, self.tokens + (elapsed * self.refill_rate)
-            )
+            self.tokens = min(self.capacity, self.tokens + (elapsed * self.refill_rate))
             self.last_refill = now
             return self.tokens
 
@@ -74,9 +70,7 @@ _rate_limiters: dict[str, dict[str, TokenBucket]] = defaultdict(dict)
 _rate_limiter_lock = Lock()
 
 
-def get_rate_limiter(
-    service: str, operation_type: str, max_ops: float, window_seconds: float
-) -> TokenBucket:
+def get_rate_limiter(service: str, operation_type: str, max_ops: float, window_seconds: float) -> TokenBucket:
     """Get or create rate limiter for a service and operation.
 
     Args:
@@ -93,9 +87,7 @@ def get_rate_limiter(
         if key not in _rate_limiters[service]:
             # Calculate refill rate (tokens per second)
             refill_rate = max_ops / window_seconds
-            _rate_limiters[service][operation_type] = TokenBucket(
-                capacity=max_ops, refill_rate=refill_rate
-            )
+            _rate_limiters[service][operation_type] = TokenBucket(capacity=max_ops, refill_rate=refill_rate)
         return _rate_limiters[service][operation_type]
 
 

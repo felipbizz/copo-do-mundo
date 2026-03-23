@@ -123,9 +123,7 @@ class SessionManager:
                     # Combine and remove duplicates
                     combined = pd.concat([current_data, new_data], ignore_index=True)
                     # Remove duplicates based on all columns except Data (in case of re-votes)
-                    combined = combined.drop_duplicates(
-                        subset=["Nome", "Participante", "Categoria"], keep="last"
-                    )
+                    combined = combined.drop_duplicates(subset=["Nome", "Participante", "Categoria"], keep="last")
                     SessionManager.set("data", combined)
                 SessionManager.update_last_data_load()
                 return new_data

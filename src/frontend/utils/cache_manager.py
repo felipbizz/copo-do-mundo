@@ -172,9 +172,7 @@ class CacheManager:
             return
 
         # Remove only results-related cache entries
-        keys_to_remove = [
-            key for key in st.session_state.cached_data if key.startswith("results_")
-        ]
+        keys_to_remove = [key for key in st.session_state.cached_data if key.startswith("results_")]
         for key in keys_to_remove:
             del st.session_state.cached_data[key]
 
@@ -193,9 +191,7 @@ class CacheManager:
 
         # Remove cache entries related to this category
         keys_to_remove = [
-            key
-            for key in st.session_state.cached_data
-            if f"_cat_{categoria}_" in key or key.endswith(f"_{categoria}")
+            key for key in st.session_state.cached_data if f"_cat_{categoria}_" in key or key.endswith(f"_{categoria}")
         ]
         for key in keys_to_remove:
             del st.session_state.cached_data[key]

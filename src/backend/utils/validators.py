@@ -86,9 +86,7 @@ def validate_vote_data(data: pd.DataFrame) -> None:
     score_columns = ["Originalidade", "Aparencia", "Sabor"]
     for col in score_columns:
         if col in data.columns:
-            invalid_scores = data[
-                (data[col] < 0) | (data[col] > 10) | data[col].isna()
-            ]
+            invalid_scores = data[(data[col] < 0) | (data[col] > 10) | data[col].isna()]
             if not invalid_scores.empty:
                 raise ValidationError(
                     f"Column '{col}' contains invalid scores. "
@@ -101,9 +99,7 @@ def validate_vote_data(data: pd.DataFrame) -> None:
         if col in data.columns:
             empty_values = data[data[col].isna() | (data[col].astype(str).str.strip() == "")]
             if not empty_values.empty:
-                raise ValidationError(
-                    f"Column '{col}' contains empty values. Found {len(empty_values)} empty values."
-                )
+                raise ValidationError(f"Column '{col}' contains empty values. Found {len(empty_values)} empty values.")
 
 
 def validate_single_vote(
@@ -148,8 +144,6 @@ def validate_single_vote(
         try:
             score_int = int(score_value)
             if not 0 <= score_int <= 10:
-                raise ValidationError(
-                    f"{score_name} must be between 0 and 10, got {score_int}"
-                )
+                raise ValidationError(f"{score_name} must be between 0 and 10, got {score_int}")
         except (ValueError, TypeError) as e:
             raise ValidationError(f"{score_name} must be an integer between 0 and 10") from e

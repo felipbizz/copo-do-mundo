@@ -106,18 +106,14 @@ class BigQueryVoteStorage:
 
         try:
             # Estimate usage
-            estimated_bytes = UsageEstimator.estimate_bigquery_query(
-                f"SELECT * FROM `{self.table_ref}`"
-            )
+            estimated_bytes = UsageEstimator.estimate_bigquery_query(f"SELECT * FROM `{self.table_ref}`")
             limit = UsageEstimator.get_quota_limit("bigquery", "query")
 
             # Check quota and circuit breaker
             quota_manager = get_quota_manager()
             circuit_breaker = get_circuit_breaker("bigquery")
 
-            can_proceed, status, reason = circuit_breaker.can_proceed(
-                "query", estimated_bytes, limit
-            )
+            can_proceed, status, reason = circuit_breaker.can_proceed("query", estimated_bytes, limit)
 
             if not can_proceed:
                 raise QuotaExceededError(reason)
@@ -165,18 +161,12 @@ class BigQueryVoteStorage:
         try:
             # Format timestamp for BigQuery
             timestamp_str = since_timestamp.strftime("%Y-%m-%d %H:%M:%S")
-            query = (
-                f"SELECT * FROM `{self.table_ref}` "
-                f"WHERE Data > TIMESTAMP('{timestamp_str}') "
-                f"ORDER BY Data DESC"
-            )
+            query = f"SELECT * FROM `{self.table_ref}` WHERE Data > TIMESTAMP('{timestamp_str}') ORDER BY Data DESC"
             df = self.client.query(query).to_dataframe()
             # Ensure Data column is datetime
             if "Data" in df.columns and len(df) > 0:
                 df["Data"] = pd.to_datetime(df["Data"])
-            logger.info(
-                f"Successfully loaded {len(df)} votes from BigQuery since {since_timestamp}"
-            )
+            logger.info(f"Successfully loaded {len(df)} votes from BigQuery since {since_timestamp}")
             return df
         except Exception as e:
             logger.error(f"Error loading incremental data from BigQuery: {str(e)}")
@@ -226,9 +216,7 @@ class BigQueryVoteStorage:
 
             # Convert DataFrame to CSV string
             csv_string = data_to_upload.to_csv(index=False)
-            job = self.client.load_table_from_string(
-                csv_string, self.table_ref, job_config=job_config
-            )
+            job = self.client.load_table_from_string(csv_string, self.table_ref, job_config=job_config)
             job.result()  # Wait for job to complete
 
             logger.info(f"Successfully saved {len(data)} votes to BigQuery")
@@ -295,9 +283,7 @@ class BigQueryVoteStorage:
             quota_manager = get_quota_manager()
             circuit_breaker = get_circuit_breaker("bigquery")
 
-            can_proceed, status, reason = circuit_breaker.can_proceed(
-                "streaming", estimated_bytes, limit
-            )
+            can_proceed, status, reason = circuit_breaker.can_proceed("streaming", estimated_bytes, limit)
 
             if not can_proceed:
                 raise QuotaExceededError(reason)
@@ -393,9 +379,7 @@ class BigQueryVoteStorage:
             quota_manager = get_quota_manager()
             circuit_breaker = get_circuit_breaker("bigquery")
 
-            can_proceed, status, reason = circuit_breaker.can_proceed(
-                "streaming", estimated_bytes, limit
-            )
+            can_proceed, status, reason = circuit_breaker.can_proceed("streaming", estimated_bytes, limit)
 
             if not can_proceed:
                 raise QuotaExceededError(reason)
@@ -476,9 +460,7 @@ class BigQueryVoteStorage:
             quota_manager = get_quota_manager()
             circuit_breaker = get_circuit_breaker("bigquery")
 
-            can_proceed, status, reason = circuit_breaker.can_proceed(
-                "streaming", estimated_bytes, limit
-            )
+            can_proceed, status, reason = circuit_breaker.can_proceed("streaming", estimated_bytes, limit)
 
             if not can_proceed:
                 raise QuotaExceededError(reason)
@@ -523,9 +505,7 @@ class BigQueryVoteStorage:
         )
 
         csv_string = data_to_upload.to_csv(index=False)
-        job = self.client.load_table_from_string(
-            csv_string, self.table_ref, job_config=job_config
-        )
+        job = self.client.load_table_from_string(csv_string, self.table_ref, job_config=job_config)
         job.result()
 
         logger.info(f"Successfully appended {len(data)} votes to BigQuery")

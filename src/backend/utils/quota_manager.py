@@ -35,9 +35,7 @@ class QuotaManager:
                         If None, uses default location in data directory.
         """
         if usage_file is None:
-            usage_file = os.path.join(
-                os.getenv("DATA_DIR", "data"), "quota_usage.json"
-            )
+            usage_file = os.path.join(os.getenv("DATA_DIR", "data"), "quota_usage.json")
         self.usage_file = Path(usage_file)
         self.usage_file.parent.mkdir(parents=True, exist_ok=True)
         self._usage_data = self._load_usage_data()
@@ -148,9 +146,7 @@ class QuotaManager:
                 "unit": unit,
             }
 
-        self._usage_data[service]["monthly"][monthly_key][operation_type]["total"] += (
-            cost
-        )
+        self._usage_data[service]["monthly"][monthly_key][operation_type]["total"] += cost
 
         self._save_usage_data()
         logger.debug(
@@ -211,9 +207,7 @@ class QuotaManager:
 
         return status, projected_percentage
 
-    def get_usage(
-        self, service: str, operation_type: str, period: str = "monthly"
-    ) -> float:
+    def get_usage(self, service: str, operation_type: str, period: str = "monthly") -> float:
         """Get current usage for a service and operation type.
 
         Args:
@@ -239,15 +233,9 @@ class QuotaManager:
         if operation_type not in self._usage_data[service][period][period_key]:
             return 0.0
 
-        return float(
-            self._usage_data[service][period][period_key][operation_type].get(
-                "total", 0.0
-            )
-        )
+        return float(self._usage_data[service][period][period_key][operation_type].get("total", 0.0))
 
-    def get_usage_stats(
-        self, service: str | None = None, period: str = "monthly"
-    ) -> dict[str, Any]:
+    def get_usage_stats(self, service: str | None = None, period: str = "monthly") -> dict[str, Any]:
         """Get usage statistics.
 
         Args:
@@ -280,9 +268,7 @@ class QuotaManager:
 
         return stats
 
-    def reset_usage(
-        self, service: str | None = None, period: str | None = None
-    ) -> bool:
+    def reset_usage(self, service: str | None = None, period: str | None = None) -> bool:
         """Reset usage data (admin only).
 
         Args:

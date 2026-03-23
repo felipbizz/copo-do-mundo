@@ -58,9 +58,7 @@ class CloudStorageImageStorage:
             logger.info(f"Bucket {self.bucket_name} exists")
         except Exception:
             # Bucket doesn't exist, create it
-            self.bucket = self.client.create_bucket(
-                self.bucket_name, location="US"
-            )
+            self.bucket = self.client.create_bucket(self.bucket_name, location="US")
             logger.info(f"Created bucket {self.bucket_name}")
 
     @retry_with_backoff(max_retries=3, initial_delay=1.0)
@@ -113,9 +111,7 @@ class CloudStorageImageStorage:
             quota_manager = get_quota_manager()
             circuit_breaker = get_circuit_breaker("cloud_storage")
 
-            can_proceed, status, reason = circuit_breaker.can_proceed(
-                "upload", estimated_bytes, limit
-            )
+            can_proceed, status, reason = circuit_breaker.can_proceed("upload", estimated_bytes, limit)
 
             if not can_proceed:
                 raise QuotaExceededError(reason)
@@ -138,9 +134,7 @@ class CloudStorageImageStorage:
             logger.error(f"Error saving image to Cloud Storage: {str(e)}")
             return False
 
-    def _save_image_internal(
-        self, image: Image.Image, image_path: str, buffer: BytesIO | None = None
-    ) -> bool:
+    def _save_image_internal(self, image: Image.Image, image_path: str, buffer: BytesIO | None = None) -> bool:
         """Internal method to save image without quota checks."""
         if buffer is None:
             # Convert image to bytes
@@ -193,9 +187,7 @@ class CloudStorageImageStorage:
             quota_manager = get_quota_manager()
             circuit_breaker = get_circuit_breaker("cloud_storage")
 
-            can_proceed, status, reason = circuit_breaker.can_proceed(
-                "download", estimated_bytes, limit
-            )
+            can_proceed, status, reason = circuit_breaker.can_proceed("download", estimated_bytes, limit)
 
             if not can_proceed:
                 raise QuotaExceededError(reason)
@@ -205,9 +197,7 @@ class CloudStorageImageStorage:
 
             # Track actual usage (egress and Class B operation)
             if image:
-                quota_manager.track_operation(
-                    "cloud_storage", "download", file_size, "bytes"
-                )
+                quota_manager.track_operation("cloud_storage", "download", file_size, "bytes")
                 quota_manager.track_operation("cloud_storage", "class_b", 1, "operations")
 
             if status.value == "warning":
@@ -263,9 +253,7 @@ class CloudStorageImageStorage:
             quota_manager = get_quota_manager()
             circuit_breaker = get_circuit_breaker("cloud_storage")
 
-            can_proceed, status, reason = circuit_breaker.can_proceed(
-                "class_a", estimated_ops, limit
-            )
+            can_proceed, status, reason = circuit_breaker.can_proceed("class_a", estimated_ops, limit)
 
             if not can_proceed:
                 raise QuotaExceededError(reason)

@@ -29,10 +29,7 @@ class ImageManager:
                 self.storage = self._primary_storage
                 logger.info("Initialized ImageManager with Cloud Storage")
             except Exception as e:
-                logger.warning(
-                    f"Failed to initialize Cloud Storage: {str(e)}. "
-                    "Falling back to local storage."
-                )
+                logger.warning(f"Failed to initialize Cloud Storage: {str(e)}. Falling back to local storage.")
                 self.storage = self._fallback_storage
                 self._using_fallback = True
         else:
@@ -50,10 +47,7 @@ class ImageManager:
             # Already using fallback
             return
 
-        logger.warning(
-            f"Quota exceeded during {operation}. "
-            "Switching to local storage fallback for images."
-        )
+        logger.warning(f"Quota exceeded during {operation}. Switching to local storage fallback for images.")
         self.storage = self._fallback_storage
         self._using_fallback = True
 

@@ -22,9 +22,7 @@ from backend.data.storage.bigquery_storage import BigQueryVoteStorage
 from backend.data.storage.cloud_storage import CloudStorageImageStorage
 from config import CONFIG
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -85,9 +83,7 @@ def migrate_votes(
 
         # Initialize BigQuery storage
         logger.info("Connecting to BigQuery...")
-        storage = BigQueryVoteStorage(
-            project_id=project_id, dataset_id=dataset_id, table_id=table_id
-        )
+        storage = BigQueryVoteStorage(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
         # Append data to BigQuery
         logger.info("Uploading votes to BigQuery...")
@@ -124,9 +120,11 @@ def migrate_images(
             logger.warning(f"Images directory not found: {images_dir}")
             return True  # Not an error if directory doesn't exist
 
-        image_files = list(Path(images_dir).glob("*.jpg")) + list(
-            Path(images_dir).glob("*.jpeg")
-        ) + list(Path(images_dir).glob("*.png"))
+        image_files = (
+            list(Path(images_dir).glob("*.jpg"))
+            + list(Path(images_dir).glob("*.jpeg"))
+            + list(Path(images_dir).glob("*.png"))
+        )
 
         if not image_files:
             logger.warning("No images found to migrate")

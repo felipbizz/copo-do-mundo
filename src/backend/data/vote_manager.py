@@ -60,9 +60,7 @@ class VoteManager:
             # Validate scores
             for score in [originalidade, aparencia, sabor]:
                 if not 0 <= score <= 10:
-                    raise VoteManagerError(
-                        f"Invalid score: {score}. Scores must be between 0 and 10."
-                    )
+                    raise VoteManagerError(f"Invalid score: {score}. Scores must be between 0 and 10.")
 
             vote = pd.DataFrame(
                 [
@@ -84,9 +82,7 @@ class VoteManager:
         except Exception as e:
             raise VoteManagerError(f"Error creating vote: {str(e)}") from e
 
-    def check_duplicate_vote(
-        self, data: pd.DataFrame, name: str, categoria: str, participant: str
-    ) -> bool:
+    def check_duplicate_vote(self, data: pd.DataFrame, name: str, categoria: str, participant: str) -> bool:
         """Check if a vote already exists for this participant and category.
 
         Args:
@@ -99,18 +95,14 @@ class VoteManager:
             bool: True if a duplicate vote exists, False otherwise.
         """
         is_duplicate = not data[
-            (data["Nome"] == name)
-            & (data["Categoria"] == categoria)
-            & (data["Participante"] == participant)
+            (data["Nome"] == name) & (data["Categoria"] == categoria) & (data["Participante"] == participant)
         ].empty
 
         if is_duplicate:
             logger.warning(f"Duplicate vote found for {name} - {categoria} - {participant}")
         return is_duplicate
 
-    def remove_duplicate_vote(
-        self, data: pd.DataFrame, name: str, categoria: str, participant: str
-    ) -> pd.DataFrame:
+    def remove_duplicate_vote(self, data: pd.DataFrame, name: str, categoria: str, participant: str) -> pd.DataFrame:
         """Remove all occurrences of a duplicate vote.
 
         Args:
@@ -127,11 +119,7 @@ class VoteManager:
         """
         try:
             # Find all matching votes
-            mask = (
-                (data["Nome"] == name)
-                & (data["Categoria"] == categoria)
-                & (data["Participante"] == participant)
-            )
+            mask = (data["Nome"] == name) & (data["Categoria"] == categoria) & (data["Participante"] == participant)
 
             # Get all non-matching votes (effectively removing all matching votes)
             result = data[~mask].copy()
@@ -166,8 +154,7 @@ class VoteManager:
             for participant in range(1, num_participants + 1):
                 # Check if this combination exists in juror's votes
                 if juror_votes[
-                    (juror_votes["Categoria"] == categoria)
-                    & (juror_votes["Participante"] == str(participant))
+                    (juror_votes["Categoria"] == categoria) & (juror_votes["Participante"] == str(participant))
                 ].empty:
                     missing_votes.append((categoria, participant))
 
@@ -242,9 +229,7 @@ class VoteManager:
         except Exception as e:
             raise VoteManagerError(f"Error clearing votes: {str(e)}") from e
 
-    def get_voted_drinks_for_juror(
-        self, data: pd.DataFrame, name: str
-    ) -> list[tuple[str, str, str]]:
+    def get_voted_drinks_for_juror(self, data: pd.DataFrame, name: str) -> list[tuple[str, str, str]]:
         """Get list of drinks a juror has already voted on.
 
         Args:
@@ -268,9 +253,7 @@ class VoteManager:
             return voted_drinks
 
         # Get unique combinations of categoria and participant
-        unique_votes = (
-            juror_votes[["Categoria", "Participante"]].drop_duplicates().values.tolist()
-        )
+        unique_votes = juror_votes[["Categoria", "Participante"]].drop_duplicates().values.tolist()
 
         # Convert to list of tuples (categoria, participant)
         # Note: code will be resolved in the UI layer using Anonymizer
@@ -310,8 +293,7 @@ class VoteManager:
         for code, (participant, categoria) in all_codes.items():
             # Check if this juror has voted on this participant-category combination
             has_voted = not juror_votes[
-                (juror_votes["Categoria"] == categoria)
-                & (juror_votes["Participante"] == str(participant))
+                (juror_votes["Categoria"] == categoria) & (juror_votes["Participante"] == str(participant))
             ].empty
 
             if not has_voted:
@@ -352,9 +334,7 @@ class VoteManager:
             # Validate scores
             for score in [originalidade, aparencia, sabor]:
                 if not 0 <= score <= 10:
-                    raise VoteManagerError(
-                        f"Invalid score: {score}. Scores must be between 0 and 10."
-                    )
+                    raise VoteManagerError(f"Invalid score: {score}. Scores must be between 0 and 10.")
 
             # Use DataManager's append_vote method
             return self.data_manager.append_vote(
