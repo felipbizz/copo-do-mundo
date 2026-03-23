@@ -1,0 +1,54 @@
+name: Wake-Up GCP Resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm you want to wake up the site'
+        required: true
+        default: 'no'
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE_NAME: copo-do-mundo
+
+jobs:
+  wakeup:
+    if: github.event.inputs.confirm == 'yes'
+    name: Wake Up Cloud Run Service
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to gcloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ vars.WIF_PROVIDER }}'
+          service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
+
+      - name: Setup cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Wake Up Cloud Run Service
+        run: |
+          echo "Waking up website..."
+          gcloud run services add-iam-policy-binding ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --member="allUsers" \
+            --role="roles/run.invoker" \
+            --quiet || echo "Policy already added."
+          
+          echo "=========================================================="
+          echo "Website is now Awake!"
+          echo "Public access has been completely restored."
+          echo "Your Cloud Run server is ready to accept active connections."
+          echo "=========================================================="

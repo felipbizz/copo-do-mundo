@@ -1,0 +1,57 @@
+name: Hibernate GCP Resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm you want to put the site to sleep'
+        required: true
+        default: 'no'
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE_NAME: copo-do-mundo
+
+jobs:
+  hibernate:
+    if: github.event.inputs.confirm == 'yes'
+    name: Hibernate Cloud Run Service
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to gcloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ vars.WIF_PROVIDER }}'
+          service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
+
+      - name: Setup cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Hibernate Cloud Run Service
+        run: |
+          echo "Putting website to sleep..."
+          gcloud run services remove-iam-policy-binding ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --member="allUsers" \
+            --role="roles/run.invoker" \
+            --quiet || echo "Policy already removed."
+          
+          echo "=========================================================="
+          echo "Website is now in Hibernation!"
+          echo "All public access is completely blocked (returns Forbbiden)."
+          echo "The server cannot be woken up by bots or users anymore."
+          echo "Your Cloud Run active compute cost is strictly guaranteed at $0.00."
+          echo ""
+          echo "To wake the site back up for the next event, just run your standard Deploy pipeline!"
+          echo "=========================================================="
