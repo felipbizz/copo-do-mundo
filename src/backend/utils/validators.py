@@ -68,19 +68,19 @@ def validate_vote_data(data: pd.DataFrame) -> None:
             if not pd.api.types.is_datetime64_any_dtype(data[col]):
                 try:
                     pd.to_datetime(data[col])
-                except (ValueError, TypeError):
-                    raise ValidationError(f"Column '{col}' must be datetime-like")
+                except (ValueError, TypeError) as e:
+                    raise ValidationError(f"Column '{col}' must be datetime-like") from e
         else:
             # Check if values can be converted to expected type
             try:
-                if expected_type == int:
+                if expected_type is int:
                     pd.to_numeric(data[col], errors="raise").astype(int)
-                elif expected_type == str:
+                elif expected_type is str:
                     data[col].astype(str)
             except (ValueError, TypeError) as e:
                 raise ValidationError(
                     f"Column '{col}' contains invalid values for type {expected_type}: {str(e)}"
-                )
+                ) from e
 
     # Validate score ranges
     score_columns = ["Originalidade", "Aparencia", "Sabor"]
@@ -151,5 +151,5 @@ def validate_single_vote(
                 raise ValidationError(
                     f"{score_name} must be between 0 and 10, got {score_int}"
                 )
-        except (ValueError, TypeError):
-            raise ValidationError(f"{score_name} must be an integer between 0 and 10")
+        except (ValueError, TypeError) as e:
+            raise ValidationError(f"{score_name} must be an integer between 0 and 10") from e

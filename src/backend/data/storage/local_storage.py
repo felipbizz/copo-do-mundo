@@ -107,10 +107,7 @@ class LocalVoteStorage:
             existing_data = self.load_data()
 
             # Append new data
-            if existing_data.empty:
-                updated_data = data
-            else:
-                updated_data = pd.concat([existing_data, data], ignore_index=True)
+            updated_data = data if existing_data.empty else pd.concat([existing_data, data], ignore_index=True)
 
             # Save combined data
             updated_data.to_csv(self.data_file, index=False)

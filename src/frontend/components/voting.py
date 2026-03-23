@@ -168,11 +168,8 @@ class VotingComponent:
             voted_count = 0
         else:
             juror_votes = data[data["Nome"] == name]
-            if juror_votes.empty:
-                voted_count = 0
-            else:
-                # Count unique participant-category combinations
-                voted_count = len(juror_votes[["Categoria", "Participante"]].drop_duplicates())
+            # Count unique participant-category combinations
+            voted_count = 0 if juror_votes.empty else len(juror_votes[["Categoria", "Participante"]].drop_duplicates())
         
         # Show progress bar
         progress = voted_count / total_drinks if total_drinks > 0 else 0
