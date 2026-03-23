@@ -126,6 +126,13 @@ class AdminComponent:
                 SessionManager.set("categories", current_categories)
                 st.rerun()
 
+    def _render_data_management(self):
+        """Render data management section"""
+        with st.expander("💾 Gerenciamento de Dados"):
+            self._render_data_export()
+            st.markdown("---")
+            self._render_clear_votes()
+
     def _render_data_export(self):
         """Render data export section"""
         st.subheader("📥 Exportar Dados")
