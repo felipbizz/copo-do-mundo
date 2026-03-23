@@ -142,6 +142,19 @@ else
         --member="serviceAccount:$SERVICE_ACCOUNT_EMAIL" \
         --role="roles/secretmanager.secretAccessor"
     
+    gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+        --member="serviceAccount:$SERVICE_ACCOUNT_EMAIL" \
+        --role="roles/artifactregistry.writer"
+    
+    gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+        --member="serviceAccount:$SERVICE_ACCOUNT_EMAIL" \
+        --role="roles/run.admin"
+    
+    gcloud iam service-accounts add-iam-policy-binding "$SERVICE_ACCOUNT_EMAIL" \
+        --member="serviceAccount:$SERVICE_ACCOUNT_EMAIL" \
+        --role="roles/iam.serviceAccountUser" \
+        --project="$PROJECT_ID"
+    
     print_info "Service account created and permissions granted."
 fi
 
