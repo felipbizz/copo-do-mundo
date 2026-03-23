@@ -72,7 +72,7 @@ fi
 
 # Create BigQuery dataset
 print_info "Creating BigQuery dataset: $DATASET_ID"
-if bq ls -d "$PROJECT_ID:$DATASET_ID" &> /dev/null; then
+if bq show "$PROJECT_ID:$DATASET_ID" &> /dev/null; then
     print_warning "Dataset $DATASET_ID already exists. Skipping creation."
 else
     bq mk --dataset --location=US "$PROJECT_ID:$DATASET_ID"
@@ -81,9 +81,9 @@ fi
 
 # Create BigQuery table
 print_info "Creating BigQuery table: $TABLE_ID"
-TABLE_REF="$PROJECT_ID.$DATASET_ID.$TABLE_ID"
+TABLE_REF="$PROJECT_ID:$DATASET_ID.$TABLE_ID"
 
-if bq ls -t "$TABLE_REF" &> /dev/null; then
+if bq show "$TABLE_REF" &> /dev/null; then
     print_warning "Table $TABLE_ID already exists. Skipping creation."
 else
     bq mk --table \
