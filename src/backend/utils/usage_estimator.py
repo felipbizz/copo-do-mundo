@@ -48,9 +48,7 @@ class UsageEstimator:
             Estimated bytes.
         """
         if avg_row_size is None:
-            avg_row_size = int(
-                QUOTA_LIMITS.get("bigquery", {}).get("avg_row_size_bytes", 200)
-            )
+            avg_row_size = int(QUOTA_LIMITS.get("bigquery", {}).get("avg_row_size_bytes", 200))
         return num_rows * avg_row_size
 
     @staticmethod
@@ -159,8 +157,5 @@ class UsageEstimator:
             elif operation_type == "class_b":
                 return float(limits.get("class_b_ops", 50000))
 
-        logger.warning(
-            f"Unknown service/operation: {service}.{operation_type}. "
-            "Returning default limit of 0."
-        )
+        logger.warning(f"Unknown service/operation: {service}.{operation_type}. Returning default limit of 0.")
         return 0.0

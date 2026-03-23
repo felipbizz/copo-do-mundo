@@ -1,4 +1,3 @@
-import os
 import logging
 
 from PIL import Image
@@ -30,10 +29,7 @@ class ImageManager:
                 self.storage = self._primary_storage
                 logger.info("Initialized ImageManager with Cloud Storage")
             except Exception as e:
-                logger.warning(
-                    f"Failed to initialize Cloud Storage: {str(e)}. "
-                    "Falling back to local storage."
-                )
+                logger.warning(f"Failed to initialize Cloud Storage: {str(e)}. Falling back to local storage.")
                 self.storage = self._fallback_storage
                 self._using_fallback = True
         else:
@@ -51,10 +47,7 @@ class ImageManager:
             # Already using fallback
             return
 
-        logger.warning(
-            f"Quota exceeded during {operation}. "
-            "Switching to local storage fallback for images."
-        )
+        logger.warning(f"Quota exceeded during {operation}. Switching to local storage fallback for images.")
         self.storage = self._fallback_storage
         self._using_fallback = True
 
@@ -75,7 +68,7 @@ class ImageManager:
                 height = int(image.size[1] * ratio)
                 image = image.resize((width, height), Image.Resampling.LANCZOS)
             return image
-        except QuotaExceededError as e:
+        except QuotaExceededError:
             self._handle_quota_exceeded("load_image")
             logger.info("Retrying load_image with local storage fallback")
             # Retry with fallback storage
@@ -142,7 +135,7 @@ class ImageManager:
             else:
                 logger.error("Falha ao otimizar a imagem")
                 return False
-        except QuotaExceededError as e:
+        except QuotaExceededError:
             self._handle_quota_exceeded("save_image")
             logger.info("Retrying save_image with local storage fallback")
             # Retry with fallback storage

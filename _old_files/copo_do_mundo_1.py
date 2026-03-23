@@ -110,9 +110,7 @@ if st.button("Exibir resultado"):
                 st.write(f"{row['Drink']}: {row['Score']}")
 
             # Find the winner for each category
-            winner = category_df.loc[category_df.groupby("Category")["Score"].idxmax()][
-                "Drink"
-            ].values
+            winner = category_df.loc[category_df.groupby("Category")["Score"].idxmax()]["Drink"].values
             st.subheader(
                 f"""A maior nota de {category}: 
                 {winner} com pontuação total de 

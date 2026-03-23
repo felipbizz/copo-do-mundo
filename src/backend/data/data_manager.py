@@ -52,10 +52,7 @@ class DataManager:
                 self.storage = self._primary_storage
                 logger.info("Initialized DataManager with BigQuery storage")
             except Exception as e:
-                logger.warning(
-                    f"Failed to initialize BigQuery storage: {str(e)}. "
-                    "Falling back to local storage."
-                )
+                logger.warning(f"Failed to initialize BigQuery storage: {str(e)}. Falling back to local storage.")
                 self.storage = self._fallback_storage
                 self._using_fallback = True
         else:
@@ -73,10 +70,7 @@ class DataManager:
             # Already using fallback
             return
 
-        logger.warning(
-            f"Quota exceeded during {operation}. "
-            "Switching to local storage fallback."
-        )
+        logger.warning(f"Quota exceeded during {operation}. Switching to local storage fallback.")
         self.storage = self._fallback_storage
         self._using_fallback = True
 
@@ -102,7 +96,7 @@ class DataManager:
         """
         try:
             return self.storage.load_data()
-        except QuotaExceededError as e:
+        except QuotaExceededError:
             self._handle_quota_exceeded("load_data")
             logger.info("Retrying load_data with local storage fallback")
             return self.storage.load_data()
@@ -125,8 +119,6 @@ class DataManager:
             DataManagerError: If there's an error loading the data.
         """
         try:
-            from datetime import datetime
-
             if hasattr(self.storage, "load_data_since"):
                 return self.storage.load_data_since(since_timestamp)
             else:
@@ -139,8 +131,7 @@ class DataManager:
                 all_data["Data"] = pd.to_datetime(all_data["Data"])
                 filtered_data = all_data[all_data["Data"] > since_timestamp]
                 logger.info(
-                    f"Loaded {len(filtered_data)} votes since {since_timestamp} "
-                    f"(filtered from {len(all_data)} total)"
+                    f"Loaded {len(filtered_data)} votes since {since_timestamp} (filtered from {len(all_data)} total)"
                 )
                 return filtered_data
         except Exception as e:
@@ -232,7 +223,7 @@ class DataManager:
                     current_data = self.load_data()
                     updated_data = pd.concat([current_data, vote_df], ignore_index=True)
                     return self.save_data(updated_data)
-        except QuotaExceededError as e:
+        except QuotaExceededError:
             self._handle_quota_exceeded("append_vote")
             logger.info("Retrying append_vote with local storage fallback")
             # Retry with fallback storage
@@ -275,7 +266,7 @@ class DataManager:
                 current_data = self.load_data()
                 updated_data = pd.concat([current_data, data], ignore_index=True)
                 return self.save_data(updated_data)
-        except QuotaExceededError as e:
+        except QuotaExceededError:
             self._handle_quota_exceeded("append_data")
             logger.info("Retrying append_data with local storage fallback")
             # Retry with fallback storage

@@ -2,9 +2,10 @@
 
 import logging
 import time
+from collections.abc import Callable
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from backend.utils.quota_manager import QuotaStatus, get_quota_manager
 
@@ -54,9 +55,7 @@ class CircuitBreaker:
         self.last_failure_time: float | None = None
         self.quota_manager = get_quota_manager()
 
-    def can_proceed(
-        self, operation_type: str, estimated_cost: float, limit: float
-    ) -> tuple[bool, QuotaStatus, str]:
+    def can_proceed(self, operation_type: str, estimated_cost: float, limit: float) -> tuple[bool, QuotaStatus, str]:
         """Check if operation can proceed.
 
         Args:
@@ -68,18 +67,13 @@ class CircuitBreaker:
             Tuple of (can_proceed, quota_status, reason).
         """
         # Check quota status
-        status, percentage = self.quota_manager.check_quota(
-            self.service, operation_type, estimated_cost, limit
-        )
+        status, percentage = self.quota_manager.check_quota(self.service, operation_type, estimated_cost, limit)
 
         # Update circuit breaker state based on quota status
         if status == QuotaStatus.EXCEEDED:
             self.state = CircuitState.OPEN
             self.last_failure_time = time.time()
-            reason = (
-                f"Quota exceeded: {percentage:.1f}% of limit. "
-                f"Operation blocked to prevent overage."
-            )
+            reason = f"Quota exceeded: {percentage:.1f}% of limit. Operation blocked to prevent overage."
             logger.warning(f"Circuit breaker OPEN for {self.service}: {reason}")
             return False, status, reason
 
@@ -88,10 +82,7 @@ class CircuitBreaker:
             if self.state == CircuitState.CLOSED:
                 self.state = CircuitState.OPEN
                 self.last_failure_time = time.time()
-                reason = (
-                    f"Quota critical: {percentage:.1f}% of limit. "
-                    f"Circuit breaker opened to prevent overage."
-                )
+                reason = f"Quota critical: {percentage:.1f}% of limit. Circuit breaker opened to prevent overage."
                 logger.warning(f"Circuit breaker OPEN for {self.service}: {reason}")
                 return False, status, reason
             else:
@@ -106,14 +97,10 @@ class CircuitBreaker:
                 if self._should_attempt_recovery():
                     self.state = CircuitState.HALF_OPEN
                     logger.info(
-                        f"Circuit breaker HALF_OPEN for {self.service}. "
-                        f"Testing recovery. Quota at {percentage:.1f}%."
+                        f"Circuit breaker HALF_OPEN for {self.service}. Testing recovery. Quota at {percentage:.1f}%."
                     )
                 else:
-                    reason = (
-                        f"Circuit breaker OPEN. Quota at {percentage:.1f}%. "
-                        f"Recovery not yet attempted."
-                    )
+                    reason = f"Circuit breaker OPEN. Quota at {percentage:.1f}%. Recovery not yet attempted."
                     return False, status, reason
 
             reason = f"Quota warning: {percentage:.1f}% of limit. Proceeding with caution."
@@ -127,8 +114,7 @@ class CircuitBreaker:
                 self.state = CircuitState.CLOSED
                 self.last_failure_time = None
                 logger.info(
-                    f"Circuit breaker CLOSED for {self.service} "
-                    f"(was {old_state.value}). Quota at {percentage:.1f}%."
+                    f"Circuit breaker CLOSED for {self.service} (was {old_state.value}). Quota at {percentage:.1f}%."
                 )
 
             return True, status, "Quota OK"
@@ -231,15 +217,11 @@ def circuit_breaker(
             lim = limit() if callable(limit) else limit
 
             # Check if operation can proceed
-            can_proceed, status, reason = cb.can_proceed(
-                operation_type, cost, lim
-            )
+            can_proceed, status, reason = cb.can_proceed(operation_type, cost, lim)
 
             if not can_proceed:
                 # Raise exception to trigger fallback
-                raise QuotaExceededError(
-                    f"Operation blocked by circuit breaker: {reason}"
-                )
+                raise QuotaExceededError(f"Operation blocked by circuit breaker: {reason}")
 
             try:
                 result = func(*args, **kwargs)

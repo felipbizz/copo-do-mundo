@@ -2,8 +2,9 @@
 
 import logging
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from google.api_core import exceptions as gcp_exceptions
 
@@ -63,9 +64,7 @@ def retry_with_backoff(
                         time.sleep(delay)
                         delay = min(delay * exponential_base, max_delay)
                     else:
-                        logger.error(
-                            f"Max retries exceeded for {func.__name__} after {max_retries + 1} attempts"
-                        )
+                        logger.error(f"Max retries exceeded for {func.__name__} after {max_retries + 1} attempts")
                 except Exception as e:
                     # Non-transient errors should not be retried
                     logger.error(f"Non-retryable error in {func.__name__}: {str(e)}")

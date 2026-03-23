@@ -31,7 +31,7 @@ build-backend = "hatchling.build"
 packages = ["."]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 
 [tool.ruff.format]
 exclude = ["*.ipynb"]

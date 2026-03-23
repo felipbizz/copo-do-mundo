@@ -22,8 +22,7 @@ CONFIG = {
     "BIGQUERY_DATASET": os.getenv("BIGQUERY_DATASET", "copo_do_mundo"),
     "BIGQUERY_TABLE": os.getenv("BIGQUERY_TABLE", "votes"),
     "CLOUD_STORAGE_BUCKET": os.getenv("CLOUD_STORAGE_BUCKET"),
-    "QUOTA_PROTECTION_ENABLED": os.getenv("QUOTA_PROTECTION_ENABLED", "true").lower()
-    == "true",
+    "QUOTA_PROTECTION_ENABLED": os.getenv("QUOTA_PROTECTION_ENABLED", "true").lower() == "true",
 }
 
 # GCP Free Tier Quota Limits

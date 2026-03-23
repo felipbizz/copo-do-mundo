@@ -17,7 +17,7 @@ This guide explains how to deploy Copo do Mundo to Google Cloud Run.
    - Cloud Run
    - BigQuery
    - Cloud Storage
-   - Container Registry or Artifact Registry
+   - Artifact Registry
    - Cloud Build (for CI/CD)
 
 ## Initial Setup
@@ -98,7 +98,7 @@ python scripts/migrate_data.py
 
 The workflow will:
 - Build Docker image
-- Push to Google Container Registry
+- Push to Google Artifact Registry
 - Deploy to Cloud Run
 - Configure environment variables
 
@@ -110,13 +110,16 @@ If you prefer to deploy manually:
 # Set project
 gcloud config set project YOUR_PROJECT_ID
 
+# Configure Docker to authenticate with Artifact Registry
+gcloud auth configure-docker us-central1-docker.pkg.dev
+
 # Build and push image
-docker build -t gcr.io/YOUR_PROJECT_ID/copo-do-mundo:latest .
-docker push gcr.io/YOUR_PROJECT_ID/copo-do-mundo:latest
+docker build -t us-central1-docker.pkg.dev/YOUR_PROJECT_ID/copo-do-mundo-repo/copo-do-mundo:latest .
+docker push us-central1-docker.pkg.dev/YOUR_PROJECT_ID/copo-do-mundo-repo/copo-do-mundo:latest
 
 # Deploy to Cloud Run
 gcloud run deploy copo-do-mundo \
-  --image gcr.io/YOUR_PROJECT_ID/copo-do-mundo:latest \
+  --image us-central1-docker.pkg.dev/YOUR_PROJECT_ID/copo-do-mundo-repo/copo-do-mundo:latest \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \

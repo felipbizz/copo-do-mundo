@@ -56,9 +56,7 @@ if st.button("Exibir resultado"):
         df = df.explode(list(df.columns))
         df.Score = df.Score.astype(int)
         # Calculate scores for each drink in each category
-        scores = (
-            df.drop(columns=["Nome"]).groupby(["Categoria", "Drink"])["Score"].sum().reset_index()
-        )
+        scores = df.drop(columns=["Nome"]).groupby(["Categoria", "Drink"])["Score"].sum().reset_index()
 
         # Display scores for each drink in each category
         for category, category_df in scores.groupby("Category"):
@@ -67,9 +65,7 @@ if st.button("Exibir resultado"):
                 st.write(f"{row['Drink']}: {row['Score']}")
 
             # Find the winner for each category
-            winner = category_df.loc[category_df.groupby("Category")["Score"].idxmax()][
-                "Drink"
-            ].values
+            winner = category_df.loc[category_df.groupby("Category")["Score"].idxmax()]["Drink"].values
             st.subheader(
                 f"""A maior nota de {category}: 
                 {winner} com pontuação total de 
