@@ -52,11 +52,11 @@ class QuotaManager:
             return {}
 
         try:
-            with open(self.usage_file, "r") as f:
+            with open(self.usage_file) as f:
                 data = json.load(f)
                 # Convert date strings back to datetime objects for internal use
                 return self._normalize_usage_data(data)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Error loading usage data: {e}. Starting with empty data.")
             return {}
 
@@ -88,7 +88,7 @@ class QuotaManager:
         try:
             with open(self.usage_file, "w") as f:
                 json.dump(self._usage_data, f, indent=2, default=str)
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Error saving usage data: {e}")
 
     def _get_current_period_keys(self) -> tuple[str, str]:
@@ -180,7 +180,6 @@ class QuotaManager:
             Tuple of (QuotaStatus, current_usage_percentage).
         """
         daily_key, monthly_key = self._get_current_period_keys()
-        period_key = daily_key if period == "daily" else monthly_key
 
         # Get current usage
         current_usage = self.get_usage(service, operation_type, period)
@@ -261,10 +260,7 @@ class QuotaManager:
         daily_key, monthly_key = self._get_current_period_keys()
         period_key = daily_key if period == "daily" else monthly_key
 
-        if service:
-            services = [service]
-        else:
-            services = list(self._usage_data.keys())
+        services = [service] if service else list(self._usage_data.keys())
 
         stats = {}
         for svc in services:
@@ -325,7 +321,7 @@ class QuotaManager:
             if "daily" in self._usage_data[service]:
                 keys_to_remove = [
                     key
-                    for key in self._usage_data[service]["daily"].keys()
+                    for key in self._usage_data[service]["daily"]
                     if datetime.fromisoformat(key).date() < cutoff_date
                 ]
                 for key in keys_to_remove:

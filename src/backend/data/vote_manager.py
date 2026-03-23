@@ -3,7 +3,6 @@ from datetime import datetime
 
 import pandas as pd
 
-from config import CONFIG
 from backend.data.data_manager import DataManager
 
 # Configure logging

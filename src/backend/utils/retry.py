@@ -2,8 +2,9 @@
 
 import logging
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from google.api_core import exceptions as gcp_exceptions
 

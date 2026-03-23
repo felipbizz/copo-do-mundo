@@ -3,11 +3,10 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any
 
 import pandas as pd
-from google.cloud import bigquery
 from google.auth.exceptions import DefaultCredentialsError
+from google.cloud import bigquery
 
 from backend.utils.circuit_breaker import QuotaExceededError, get_circuit_breaker
 from backend.utils.quota_manager import get_quota_manager
@@ -15,7 +14,7 @@ from backend.utils.rate_limiter import RateLimitExceededError, rate_limit
 from backend.utils.retry import retry_with_backoff
 from backend.utils.usage_estimator import UsageEstimator
 from backend.utils.validators import validate_single_vote, validate_vote_data
-from config import CONFIG, QUOTA_LIMITS, RATE_LIMITS
+from config import CONFIG, RATE_LIMITS
 
 logger = logging.getLogger(__name__)
 

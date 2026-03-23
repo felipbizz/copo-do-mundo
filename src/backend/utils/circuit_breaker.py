@@ -2,9 +2,10 @@
 
 import logging
 import time
+from collections.abc import Callable
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from backend.utils.quota_manager import QuotaStatus, get_quota_manager
 

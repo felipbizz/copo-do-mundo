@@ -3,7 +3,6 @@
 import logging
 import os
 from pathlib import Path
-from io import BytesIO
 
 import pandas as pd
 from PIL import Image

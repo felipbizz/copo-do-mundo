@@ -1,4 +1,3 @@
-import os
 import time
 
 import streamlit as st
@@ -8,7 +7,6 @@ from backend.data.vote_manager import VoteManager
 from backend.image.image_manager import ImageManager
 from backend.utils.circuit_breaker import CircuitState, get_circuit_breaker
 from backend.utils.quota_manager import get_quota_manager
-from backend.utils.usage_estimator import UsageEstimator
 from backend.validation.validators import Validators
 from config import CONFIG, QUOTA_LIMITS, QUOTA_THRESHOLDS, UI_MESSAGES
 from frontend.utils.anonymizer import Anonymizer

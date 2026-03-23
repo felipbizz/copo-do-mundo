@@ -1,5 +1,4 @@
 import logging
-import os
 import time
 
 import pandas as pd
@@ -10,7 +9,7 @@ from backend.data.data_manager import DataManager
 from backend.data.vote_manager import VoteManager
 from backend.image.image_manager import ImageManager
 from backend.validation.validators import Validators
-from config import CONFIG, UI_MESSAGES
+from config import UI_MESSAGES
 from frontend.utils.anonymizer import Anonymizer
 from frontend.utils.cache_manager import CacheManager
 from frontend.utils.session_manager import SessionManager

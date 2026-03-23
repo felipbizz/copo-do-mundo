@@ -3,11 +3,10 @@
 import logging
 import os
 from io import BytesIO
-from pathlib import Path
 
-from PIL import Image
-from google.cloud import storage
 from google.auth.exceptions import DefaultCredentialsError
+from google.cloud import storage
+from PIL import Image
 
 from backend.utils.circuit_breaker import QuotaExceededError, get_circuit_breaker
 from backend.utils.quota_manager import get_quota_manager
